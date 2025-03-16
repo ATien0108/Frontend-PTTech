@@ -38,7 +38,7 @@ const LoginScreen = ({navigation}: any) => {
     }
 
     console.log('Giả lập đăng nhập thành công!');
-    navigation.navigate('ProfileScreen', {email: email});
+    navigation.navigate('HomeScreen', {email: email});
   };
 
   return (
