@@ -19,6 +19,7 @@
     "@react-navigation/stack": "^7.1.2",
     "axios": "^1.8.2",
     "iconsax-react-native": "^0.0.8",
+    "lucide-react-native": "^0.482.0",
     "react": "^19.0.0",
     "react-native": "^0.78.0",
     "react-native-asset": "^2.1.1",

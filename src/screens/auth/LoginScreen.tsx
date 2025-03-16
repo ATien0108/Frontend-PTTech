@@ -31,7 +31,6 @@ const LoginScreen = ({navigation}: any) => {
     );
   }, [email, password]);
 
-  // Xử lý đăng nhập (Giả lập thành công)
   const handleLogin = () => {
     if (isDisable) {
       setErrorMessage('Vui lòng nhập email và mật khẩu hợp lệ.');
@@ -39,7 +38,7 @@ const LoginScreen = ({navigation}: any) => {
     }
 
     console.log('Giả lập đăng nhập thành công!');
-    navigation.navigate('HomeScreen', {email: email});
+    navigation.navigate('ProfileScreen', {email: email});
   };
 
   return (

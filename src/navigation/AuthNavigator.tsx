@@ -6,6 +6,7 @@ import {
   RegisterScreen,
   ForgotPasswordScreen,
   ResetPasswordScreen,
+  ProfileScreen,
 } from '../screens';
 
 const AuthNavigator = () => {
@@ -25,6 +26,7 @@ const AuthNavigator = () => {
         name="ResetPasswordScreen"
         component={ResetPasswordScreen}
       />
+      <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
 
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
     </Stack.Navigator>
