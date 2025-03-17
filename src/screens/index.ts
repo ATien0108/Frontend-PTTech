@@ -4,6 +4,7 @@ import RegisterScreen from './auth/RegisterScreen';
 import ForgotPasswordScreen from './auth/ForgotPasswordScreen';
 import ResetPasswordScreen from './auth/ResetPasswordScreen';
 import ProfileScreen from './auth/ProfileScreen';
+import ProductDetailScreen from './components/ProductDetailScreen';
 
 export {
   HomeScreen,
@@ -12,4 +13,5 @@ export {
   ForgotPasswordScreen,
   ResetPasswordScreen,
   ProfileScreen,
+  ProductDetailScreen,
 };

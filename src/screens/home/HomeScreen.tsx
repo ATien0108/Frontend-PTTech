@@ -65,7 +65,7 @@ const handleSeeMore = () => {
   console.log('Xem thêm sản phẩm');
 };
 
-const HomeScreen = () => {
+const HomeScreen = ({navigation, route}: any) => {
   return (
     <ScrollView style={styles.container}>
       <HeaderComponent />
@@ -104,7 +104,9 @@ const HomeScreen = () => {
         horizontal
         data={products}
         keyExtractor={item => item.id}
-        renderItem={({item}) => <ProductCard product={item} />}
+        renderItem={({item}) => (
+          <ProductCard product={item} navigation={navigation} />
+        )}
         showsHorizontalScrollIndicator={false}
         style={{marginBottom: 24}}
       />
@@ -133,7 +135,9 @@ const HomeScreen = () => {
         horizontal
         data={products}
         keyExtractor={item => item.id}
-        renderItem={({item}) => <ProductCard product={item} />}
+        renderItem={({item}) => (
+          <ProductCard product={item} navigation={navigation} />
+        )}
         showsHorizontalScrollIndicator={false}
         style={{marginBottom: 24}}
       />
@@ -168,9 +172,16 @@ interface Product {
   image: any;
 }
 
-const ProductCard: React.FC<{product: Product}> = ({product}) => {
+const ProductCard: React.FC<{product: Product; navigation: any}> = ({
+  product,
+  navigation,
+}) => {
   return (
-    <View style={styles.productCard}>
+    <TouchableOpacity
+      style={styles.productCard}
+      onPress={() =>
+        navigation.navigate('ProductDetailScreen', {productId: product.id})
+      }>
       <Image source={product.image} style={styles.productImage} />
       <Text style={styles.brandName}>{product.brand}</Text>
       <Text style={styles.productName}>{product.name}</Text>
@@ -179,7 +190,7 @@ const ProductCard: React.FC<{product: Product}> = ({product}) => {
       <TouchableOpacity style={styles.addToCartButton}>
         <Text style={styles.addToCartText}>Thêm vào giỏ hàng</Text>
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 
