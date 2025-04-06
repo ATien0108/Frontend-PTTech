@@ -11,7 +11,7 @@ enableScreens();
 const App = () => {
   const [isShowSplash, setIsShowSplash] = useState(true);
   const [accessToken, setAccessToken] = useState('');
-  const {getItem, setItem} = useAsyncStorage('assetToken');
+  const {getItem, setItem} = useAsyncStorage('accessToken');
 
   useEffect(() => {
     const timeout = setTimeout(() => {

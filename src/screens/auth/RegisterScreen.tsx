@@ -15,7 +15,8 @@ import {Validate} from '../../utils/validate';
 import {fontFamilies} from '../../constants/fontFamilies';
 import SocialLogin from './components/SocialLogin';
 import {TouchableOpacity} from 'react-native';
-import {Check} from 'iconsax-react-native'; // Icon dấu check
+import {Check} from 'iconsax-react-native';
+import axios from 'axios';
 
 const RegisterScreen = ({navigation}: any) => {
   const [username, setUsername] = useState('');
@@ -47,14 +48,68 @@ const RegisterScreen = ({navigation}: any) => {
     );
   }, [username, email, phoneNumber, password, confirmPassword, isAgree]);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (isDisable) {
       setErrorMessage('Vui lòng điền đầy đủ thông tin hợp lệ.');
       return;
     }
 
-    console.log('Đăng ký thành công!');
-    navigation.navigate('LoginScreen', {email: email});
+    try {
+      const userData = {
+        username: username || '',
+        email: email || '',
+        phoneNumber: phoneNumber || '',
+        password: password || '',
+        avatar: 'https://i.postimg.cc/153KnpPS/avatar-m-c-nh.jpg',
+        address: {
+          street: '',
+          communes: '',
+          district: '',
+          city: '',
+          country: '',
+        },
+        subscribedToEmails: isAgree,
+        roles: [
+          {
+            roleName: 'CUSTOMER',
+            permissions: [''],
+          },
+        ],
+        isVerified: 'true',
+      };
+
+      const response = await axios.post(
+        'http://10.0.2.2:8081/api/users/register',
+        userData,
+      );
+
+      console.log('API Response:', response);
+
+      if (response.status === 200) {
+        console.log('Đăng ký thành công!');
+        navigation.navigate('LoginScreen', {email: email});
+      } else {
+        if (
+          response.data.message ===
+          'Email đã tồn tại và chưa bị xóa. Không thể đăng ký tài khoản mới.'
+        ) {
+          setErrorMessage('Email đã tồn tại. Vui lòng chọn email khác.');
+        } else {
+          setErrorMessage('Đăng ký không thành công. Vui lòng thử lại.');
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi đăng ký:', error);
+
+      if (axios.isAxiosError(error)) {
+        console.error(
+          'Axios error details:',
+          error.response ? error.response.data : error.message,
+        );
+      }
+
+      setErrorMessage('Đã có lỗi xảy ra. Vui lòng thử lại sau.');
+    }
   };
 
   return (
@@ -157,7 +212,7 @@ const RegisterScreen = ({navigation}: any) => {
             {isAgree && <Check size={10} color={appColors.text_white} />}
           </TouchableOpacity>
           <SpaceComponent width={4} />
-          <TextComponent text="Tôi đồng ý với các điều khoản bảo mật" />
+          <TextComponent text="Tôi đồng ý với các điều khoản" />
         </RowComponent>
       </SectionComponent>
 

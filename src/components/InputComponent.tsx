@@ -49,18 +49,16 @@ const InputComponent = (props: Props) => {
         style={[styles.input, globalStyles.text]}
         value={value}
         placeholder={placeholder ?? ''}
-        onChangeText={val => onChange(val)}
+        onChangeText={onChange}
         secureTextEntry={isShowPass}
-        placeholderTextColor={'#747688'}
-        keyboardType={type ?? 'default'}
-        autoCapitalize="none"
-        onEndEditing={onEnd}
       />
+
       {suffix ?? suffix}
       <TouchableOpacity
         onPress={
           isPassword ? () => setIsShowPass(!isShowPass) : () => onChange('')
-        }>
+        }
+        activeOpacity={0.7}>
         {isPassword ? (
           <FontAwesome
             name={isShowPass ? 'eye-slash' : 'eye'}

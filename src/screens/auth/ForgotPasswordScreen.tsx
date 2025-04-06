@@ -12,19 +12,47 @@ import {Sms} from 'iconsax-react-native';
 import {Validate} from '../../utils/validate';
 import {TouchableOpacity} from 'react-native';
 import {ArrowLeft} from 'iconsax-react-native';
+import axios from 'axios';
 
 const ForgotPasswordScreen = ({navigation}: any) => {
   const [email, setEmail] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!Validate.email(email)) {
       setErrorMessage('Vui lòng nhập email hợp lệ.');
       return;
     }
 
-    console.log('Gửi yêu cầu thành công!');
-    navigation.navigate('ResetPasswordScreen', {email: email});
+    setLoading(true);
+
+    try {
+      const response = await axios.post(
+        'http://10.0.2.2:8081/api/users/forgot-password',
+        null,
+        {
+          params: {
+            email: email,
+            isAdmin: false,
+            isMobile: true,
+          },
+        },
+      );
+
+      if (response.status === 200) {
+        console.log('Yêu cầu gửi thành công:', response.data);
+        navigation.navigate('ResetPasswordScreen', {email: email});
+      } else {
+        console.error('Lỗi gửi yêu cầu:', response);
+        setErrorMessage('Có lỗi xảy ra. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('Lỗi khi gọi API:', error);
+      setErrorMessage('Có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,10 +94,11 @@ const ForgotPasswordScreen = ({navigation}: any) => {
       <SectionComponent>
         <ButtonComponent
           onPress={handleForgotPassword}
-          text="Gửi yêu cầu"
+          text={loading ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu'}
           type="primary"
           color={appColors.bg_red}
           styles={{padding: 12}}
+          disable={loading}
         />
       </SectionComponent>
 

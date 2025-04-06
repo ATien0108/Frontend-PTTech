@@ -10,7 +10,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import MenuComponent from './MenuComponent';
 
-const HeaderComponent: React.FC = () => {
+const HeaderComponent: React.FC = ({navigation}: any) => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
 
   const toggleMenu = () => {
@@ -30,7 +30,7 @@ const HeaderComponent: React.FC = () => {
         <TouchableWithoutFeedback onPress={toggleMenu}>
           <View style={styles.modalOverlay}>
             <View style={styles.menuContainer}>
-              <MenuComponent />
+              <MenuComponent navigation={navigation} />
             </View>
           </View>
         </TouchableWithoutFeedback>

@@ -12,15 +12,18 @@ import {Lock} from 'iconsax-react-native';
 import {Validate} from '../../utils/validate';
 import {TouchableOpacity} from 'react-native';
 import {ArrowLeft} from 'iconsax-react-native';
+import axios from 'axios';
 
 const ResetPasswordScreen = ({navigation, route}: any) => {
-  const email = route.params;
+  const email = route.params?.email;
+  const token = route.params?.token;
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!Validate.password(password)) {
       setErrorMessage('Mật khẩu phải có ít nhất 8 ký tự, gồm chữ và số.');
       return;
@@ -31,8 +34,26 @@ const ResetPasswordScreen = ({navigation, route}: any) => {
       return;
     }
 
-    console.log('Đặt lại mật khẩu thành công!');
-    navigation.navigate('LoginScreen', {email: email});
+    setLoading(true);
+
+    try {
+      const response = await axios.post(
+        'http://10.0.2.2:8081/api/users/reset-password',
+        {
+          token: token,
+          newPassword: password,
+        },
+      );
+
+      if (response.status === 200) {
+        console.log('Mật khẩu đã được thay đổi thành công!');
+        navigation.navigate('LoginScreen', {email: email});
+      }
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data || 'Đã xảy ra lỗi!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -90,10 +111,11 @@ const ResetPasswordScreen = ({navigation, route}: any) => {
       <SectionComponent>
         <ButtonComponent
           onPress={handleResetPassword}
-          text="Đặt lại mật khẩu"
+          text={loading ? 'Đang đặt lại mật khẩu...' : 'Đặt lại mật khẩu'}
           type="primary"
           color={appColors.bg_red}
           styles={{padding: 12}}
+          disable={loading}
         />
       </SectionComponent>
 

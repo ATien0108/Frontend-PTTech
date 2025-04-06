@@ -1,106 +1,135 @@
-import {View, TouchableOpacity, Image, Alert} from 'react-native';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
-  ButtonComponent,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+} from 'react-native';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
   ContainerComponent,
-  InputComponent,
-  RowComponent,
   SectionComponent,
-  SpaceComponent,
   TextComponent,
+  InputComponent,
+  SpaceComponent,
+  RowComponent,
   HeaderComponent,
-  FooterComponent,
 } from '../../components';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {appColors} from '../../constants/appColors';
-import {User, Sms, Call, Location} from 'iconsax-react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import {Validate} from '../../utils/validate';
 
-const ProfileScreen = ({navigation}: any) => {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [street, setStreet] = useState('');
-  const [ward, setWard] = useState('');
-  const [district, setDistrict] = useState('');
-  const [city, setCity] = useState('');
-  const [country, setCountry] = useState('');
+const ProfileScreen = ({route, navigation}: any) => {
+  const {userId} = route.params;
+
+  const [userData, setUserData] = useState<any>(null);
   const [receiveEmail, setReceiveEmail] = useState(true);
-  const [oldPhoneNumber, setOldPhoneNumber] = useState(phoneNumber);
-  const [otp, setOtp] = useState('');
-  const [isOtpVisible, setIsOtpVisible] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const verifyOtp = async (otp: string) => {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve(otp === '123456');
-      }, 1000);
-    });
+  const getAccessToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      setAccessToken(token);
+    } catch (error) {
+      console.error('Error fetching access token:', error);
+      setError('Không thể lấy token. Vui lòng đăng nhập lại.');
+      setLoading(false);
+    }
   };
 
-  const handleSave = () => {
-    if (!Validate.username(username)) {
-      Alert.alert('Lỗi', 'Tên tài khoản không hợp lệ!');
-      return;
-    }
-    if (!Validate.email(email)) {
-      Alert.alert('Lỗi', 'Email không hợp lệ!');
-      return;
-    }
-    if (!Validate.phoneNumber(phoneNumber)) {
-      Alert.alert('Lỗi', 'Số điện thoại không hợp lệ!');
-      return;
-    }
-    if (
-      !Validate.address({
-        street,
-        communes: ward,
-        district,
-        city,
-        country,
-      })
-    ) {
-      Alert.alert('Lỗi', 'Địa chỉ không hợp lệ!');
+  const fetchUserData = async () => {
+    if (!accessToken) {
+      setError('Không có accessToken. Vui lòng đăng nhập lại.');
+      setLoading(false);
       return;
     }
 
-    if (phoneNumber !== oldPhoneNumber) {
-      setIsOtpVisible(true);
-      return;
-    }
+    try {
+      const response = await axios.get(
+        `http://10.0.2.2:8081/api/users/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
 
-    saveProfile();
+      if (response.status === 200) {
+        setUserData(response.data);
+        setReceiveEmail(response.data.subscribedToEmails);
+      } else {
+        Alert.alert('Lỗi', 'Không thể tải dữ liệu người dùng.');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi tải thông tin người dùng.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleConfirmOtp = () => {
-    if (otp.length !== 6) {
-      Alert.alert('Lỗi', 'Mã OTP phải có 6 chữ số!');
+  const handleSave = async () => {
+    if (!accessToken) {
+      setError('Không có accessToken. Vui lòng đăng nhập lại.');
       return;
     }
 
-    verifyOtp(otp)
-      .then(isValid => {
-        if (isValid) {
-          saveProfile();
-        } else {
-          Alert.alert('Lỗi', 'Mã OTP không hợp lệ!');
-        }
-      })
-      .catch(() => {
-        Alert.alert('Lỗi', 'Xác thực OTP thất bại!');
-      });
+    try {
+      const updatedUserData = {
+        ...userData,
+        password: userData.password,
+        verified: userData.isVerified,
+        deleted: userData.isDeleted,
+        blocked: userData.isBlocked,
+        subscribedToEmails: receiveEmail,
+      };
+
+      const response = await axios.put(
+        `http://10.0.2.2:8081/api/users/${userId}`,
+        updatedUserData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (response.status === 200) {
+        Alert.alert('Thông báo', 'Cập nhật thông tin thành công!');
+      } else {
+        Alert.alert('Lỗi', 'Không thể cập nhật thông tin người dùng.');
+      }
+    } catch (error) {
+      console.error('Error updating user data:', error);
+      Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi cập nhật thông tin người dùng.');
+    }
   };
 
-  const saveProfile = () => {
-    setOldPhoneNumber(phoneNumber);
-    setIsOtpVisible(false);
-    Alert.alert('Thành công', 'Cập nhật thông tin thành công!');
-  };
+  useEffect(() => {
+    getAccessToken();
+  }, []);
+
+  useEffect(() => {
+    if (accessToken && userId) {
+      fetchUserData();
+    }
+  }, [accessToken, userId]);
+
+  if (loading) {
+    return <Text>Đang tải thông tin người dùng...</Text>;
+  }
+
+  if (error) {
+    return <Text>{error}</Text>;
+  }
 
   return (
     <ContainerComponent isScroll>
-      <HeaderComponent />
-
+      <HeaderComponent /> =
       <SectionComponent styles={{alignItems: 'center'}}>
         <TextComponent
           size={30}
@@ -112,13 +141,16 @@ const ProfileScreen = ({navigation}: any) => {
 
         <TouchableOpacity>
           <Image
-            source={{uri: 'https://i.postimg.cc/05XTj98C/avatar6.jpg'}}
+            source={{
+              uri:
+                userData.avatar || 'https://i.postimg.cc/05XTj98C/avatar6.jpg',
+            }}
             style={{width: 100, height: 100, borderRadius: 50}}
+            onError={() => console.log('Lỗi khi tải ảnh')}
           />
         </TouchableOpacity>
         <SpaceComponent height={20} />
       </SectionComponent>
-
       <SectionComponent>
         <TextComponent
           text="Tài khoản"
@@ -127,10 +159,9 @@ const ProfileScreen = ({navigation}: any) => {
           styles={{marginBottom: 10}}
         />
         <InputComponent
-          value={username}
-          onChange={setUsername}
+          value={userData.username}
+          onChange={username => setUserData({...userData, username})}
           placeholder="Tài khoản"
-          affix={<User size={22} color={appColors.gray} />}
         />
 
         <TextComponent
@@ -140,10 +171,9 @@ const ProfileScreen = ({navigation}: any) => {
           styles={{marginBottom: 10}}
         />
         <InputComponent
-          value={email}
-          onChange={setEmail}
+          value={userData.email}
+          onChange={email => setUserData({...userData, email})}
           placeholder="Email"
-          affix={<Sms size={22} color={appColors.gray} />}
         />
 
         <TextComponent
@@ -153,49 +183,66 @@ const ProfileScreen = ({navigation}: any) => {
           styles={{marginBottom: 10}}
         />
         <InputComponent
-          value={phoneNumber}
-          onChange={setPhoneNumber}
+          value={userData.phoneNumber}
+          onChange={phoneNumber => setUserData({...userData, phoneNumber})}
           placeholder="Số điện thoại"
-          affix={<Call size={22} color={appColors.gray} />}
         />
       </SectionComponent>
-
       <SectionComponent>
         <TextComponent text="Địa chỉ" font="bold" size={20} />
         <SpaceComponent height={10} />
 
         <InputComponent
-          value={street}
-          onChange={setStreet}
+          value={userData.address?.street || ''}
+          onChange={street =>
+            setUserData({
+              ...userData,
+              address: {...userData.address, street},
+            })
+          }
           placeholder="Đường / Phố"
-          affix={<Location size={22} color={appColors.gray} />}
         />
         <InputComponent
-          value={ward}
-          onChange={setWard}
+          value={userData.address?.communes || ''}
+          onChange={communes =>
+            setUserData({
+              ...userData,
+              address: {...userData.address, communes},
+            })
+          }
           placeholder="Xã / Phường"
-          affix={<Location size={22} color={appColors.gray} />}
         />
         <InputComponent
-          value={district}
-          onChange={setDistrict}
+          value={userData.address?.district || ''}
+          onChange={district =>
+            setUserData({
+              ...userData,
+              address: {...userData.address, district},
+            })
+          }
           placeholder="Quận / Huyện"
-          affix={<Location size={22} color={appColors.gray} />}
         />
         <InputComponent
-          value={city}
-          onChange={setCity}
+          value={userData.address?.city || ''}
+          onChange={city =>
+            setUserData({
+              ...userData,
+              address: {...userData.address, city},
+            })
+          }
           placeholder="Tỉnh / Thành phố"
-          affix={<Location size={22} color={appColors.gray} />}
         />
         <InputComponent
-          value={country}
-          onChange={setCountry}
+          value={userData.address?.country || ''}
+          onChange={country =>
+            setUserData({
+              ...userData,
+              address: {...userData.address, country},
+            })
+          }
           placeholder="Quốc gia"
-          affix={<Location size={22} color={appColors.gray} />}
         />
       </SectionComponent>
-
       <SectionComponent>
         <RowComponent styles={{alignItems: 'center'}}>
           <TouchableOpacity
@@ -219,47 +266,27 @@ const ProfileScreen = ({navigation}: any) => {
           />
         </RowComponent>
       </SectionComponent>
-
-      {isOtpVisible && (
-        <SectionComponent>
-          <TextComponent
-            text="Nhập mã OTP"
-            font="bold"
-            size={16}
-            styles={{marginBottom: 10}}
-          />
-          <InputComponent
-            value={otp}
-            onChange={setOtp}
-            placeholder="Nhập OTP"
-            affix={<Icon name="key" size={22} color={appColors.gray} />}
-            keyboardType="number-pad"
-          />
-          <ButtonComponent
-            onPress={handleConfirmOtp}
-            text="Xác nhận OTP"
-            type="primary"
-            color={appColors.bg_red}
-            styles={{padding: 12}}
-          />
-        </SectionComponent>
-      )}
-
-      <SpaceComponent height={16} />
-
-      <SectionComponent>
-        <ButtonComponent
-          onPress={handleSave}
-          text="Lưu thay đổi"
-          type="primary"
-          color={appColors.bg_red}
-          styles={{padding: 12}}
-        />
-      </SectionComponent>
-
-      <FooterComponent />
+      <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+        <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
+      </TouchableOpacity>
     </ContainerComponent>
   );
 };
 
 export default ProfileScreen;
+
+const styles = StyleSheet.create({
+  saveButton: {
+    backgroundColor: '#FFCCC9', // Soft pinkish color
+    paddingVertical: 12, // Add padding for better button height
+    paddingHorizontal: 20, // Add padding for better width
+    borderRadius: 5, // Optional: rounded corners
+    alignItems: 'center', // Center the text
+    justifyContent: 'center', // Center the text
+  },
+  saveButtonText: {
+    color: 'white', // White text color
+    fontSize: 16, // Font size
+    fontWeight: 'bold', // Optional: bold text
+  },
+});
