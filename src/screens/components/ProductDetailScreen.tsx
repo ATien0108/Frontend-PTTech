@@ -52,7 +52,8 @@ const ProductImageCarousel = ({images}: {images: any[]}) => {
 };
 
 const ProductDetailScreen = ({navigation, route}: any) => {
-  const [userId, setUserId] = useState<string | null>(null);
+  const {userId, accessToken} = route.params || {};
+
   const {productId} = route.params || {};
   const [product, setProduct] = useState<any>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
@@ -64,19 +65,16 @@ const ProductDetailScreen = ({navigation, route}: any) => {
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [cartId, setCartId] = useState<string | null>(null);
-  const [selectedQuantity, setSelectedQuantity] = useState<number>(1); // State for quantity
-  const [isModalVisible, setIsModalVisible] = useState(false); // State for modal visibility
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [discountCodes, setDiscountCodes] = useState<any[]>([]);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
       const userId = await AsyncStorage.getItem('userId');
       const accessToken = await AsyncStorage.getItem('accessToken');
-
-      console.log('userId from AsyncStorage:', userId); // Kiểm tra giá trị userId lấy từ AsyncStorage
-
       if (userId && accessToken) {
         setIsLoggedIn(true);
-        setUserId(userId); // Lưu userId vào state nếu có
       } else {
         setIsLoggedIn(false);
       }
@@ -89,26 +87,26 @@ const ProductDetailScreen = ({navigation, route}: any) => {
     const fetchCartId = async () => {
       if (userId) {
         try {
-          const accessToken = await AsyncStorage.getItem('accessToken'); // Lấy accessToken từ AsyncStorage
+          const accessToken = await AsyncStorage.getItem('accessToken');
 
           if (!accessToken) {
             Alert.alert('Lỗi', 'Bạn cần đăng nhập để truy cập giỏ hàng.');
             return;
           }
 
-          console.log('Fetching cartId for user:', userId); // Kiểm tra giá trị userId
+          console.log('Fetching cartId for user:', userId);
           const response = await axios.get(
             `http://10.0.2.2:8081/api/carts/user/${userId}`,
             {
               headers: {
-                Authorization: `Bearer ${accessToken}`, // Thêm accessToken vào header
+                Authorization: `Bearer ${accessToken}`,
               },
             },
           );
 
           if (response.data && response.data.id) {
-            console.log('Cart ID fetched:', response.data.id); // Kiểm tra giá trị cartId
-            setCartId(response.data.id); // Lưu cartId vào state
+            console.log('Cart ID fetched:', response.data.id);
+            setCartId(response.data.id);
           } else {
             Alert.alert('Lỗi', 'Không tìm thấy giỏ hàng.');
           }
@@ -120,7 +118,33 @@ const ProductDetailScreen = ({navigation, route}: any) => {
     };
 
     fetchCartId();
-  }, [userId]); // Khi userId thay đổi, gọi lại API lấy cartId
+  }, [userId]);
+
+  useEffect(() => {
+    const fetchDiscountCodes = async () => {
+      try {
+        // Gọi API để lấy tất cả discount codes
+        const response = await axios.get(
+          'http://10.0.2.2:8081/api/discount-codes',
+        );
+        const allDiscountCodes = response.data;
+
+        // Lọc discount code có applicableProducts chứa productId
+        const applicableDiscountCodes = allDiscountCodes.filter(
+          (discountCode: any) =>
+            discountCode.applicableProducts.includes(productId),
+        );
+
+        setDiscountCodes(applicableDiscountCodes); // Cập nhật state discountCodes
+      } catch (error) {
+        console.error('Error fetching discount codes:', error);
+      }
+    };
+
+    if (productId) {
+      fetchDiscountCodes();
+    }
+  }, [productId]);
 
   const handleAddToCart = async () => {
     if (!selectedVariant) {
@@ -128,20 +152,17 @@ const ProductDetailScreen = ({navigation, route}: any) => {
       return;
     }
 
-    // Ensure cartId is available
     if (!cartId) {
       Alert.alert('Lỗi', 'Không tìm thấy giỏ hàng.');
       return;
     }
 
-    // Get the accessToken from AsyncStorage
     const accessToken = await AsyncStorage.getItem('accessToken');
     if (!accessToken) {
       Alert.alert('Lỗi', 'Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng.');
       return;
     }
 
-    // Prepare the cart item data, using empty strings for missing fields
     const cartItem = {
       productId: productId,
       variantId: selectedVariant.variantId,
@@ -163,7 +184,6 @@ const ProductDetailScreen = ({navigation, route}: any) => {
     };
 
     try {
-      // Make the API call to add the item to the cart with accessToken in the header
       const response = await axios.post(
         `http://10.0.2.2:8081/api/carts/${cartId}/items`,
         cartItem,
@@ -180,10 +200,8 @@ const ProductDetailScreen = ({navigation, route}: any) => {
         Alert.alert('Lỗi', 'Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng.');
       }
     } catch (error: any) {
-      // Ép kiểu error thành 'any'
       console.error('Error adding product to cart:', error);
 
-      // More detailed logging
       if (error.response) {
         console.error('Error Response:', error.response.data);
         console.error('Error Status:', error.response.status);
@@ -198,26 +216,24 @@ const ProductDetailScreen = ({navigation, route}: any) => {
       }
     }
 
-    setIsModalVisible(false); // Close the modal after adding to cart
+    setIsModalVisible(false);
   };
 
-  // Function to show modal and set initial values
   const openVariantSelectionModal = () => {
     if (product && product.variants.length > 0) {
-      setSelectedVariant(product.variants[0]); // Set default variant if available
-      setSelectedQuantity(1); // Reset quantity to 1
-      setIsModalVisible(true); // Show the modal
+      setSelectedVariant(product.variants[0]);
+      setSelectedQuantity(1);
+      setIsModalVisible(true);
     }
   };
 
-  // Handling variant selection
   const handleVariantSelection = (variant: any) => {
     setSelectedVariant(variant);
   };
 
   const handleQuantityChange = (value: number) => {
     if (value >= 1) {
-      console.log('Updating quantity to:', value); // Thêm log để kiểm tra thay đổi
+      console.log('Updating quantity to:', value);
       setSelectedQuantity(value);
     }
   };
@@ -244,18 +260,10 @@ const ProductDetailScreen = ({navigation, route}: any) => {
     setIsMenuVisible(!isMenuVisible);
   };
 
-  const handleSearchPress = () => {
-    if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
-    }
-  };
-
   const handleProfilePress = () => {
-    console.log('Navigating to ProfileScreen with:', {userId});
-    if (userId) {
-      navigation.navigate('ProfileScreen', {
-        userId: userId,
-      });
+    if (accessToken && userId) {
+      console.log('Navigating to ProfileScreen with:', {userId});
+      navigation.navigate('ProfileScreen', {userId: userId});
     } else {
       Alert.alert(
         'Thông báo',
@@ -276,6 +284,42 @@ const ProductDetailScreen = ({navigation, route}: any) => {
       );
     }
   };
+
+  const handleSearchPress = () => {
+    if (searchQuery.trim()) {
+      navigation.navigate('SearchScreen', {query: searchQuery});
+    }
+  };
+
+  const handleOrderPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to OrderScreen with userId:', userId);
+      navigation.navigate('OrderScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem lịch sử đơn hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleCartPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to CartScreen with userId:', userId);
+      navigation.navigate('CartScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem giỏ hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleFavoritePress = () => {
+    if (accessToken && userId) {
+      navigation.navigate('FavoriteScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem sản phẩm yêu thích.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
   useEffect(() => {
     const fetchProductData = async () => {
       try {
@@ -314,9 +358,21 @@ const ProductDetailScreen = ({navigation, route}: any) => {
     try {
       const userPromises = reviews.map(async (review: any) => {
         console.log('Fetching user for review:', review);
+
+        const accessToken = await AsyncStorage.getItem('accessToken');
+        if (!accessToken) {
+          throw new Error('Access token not found');
+        }
+
         const userResponse = await axios.get(
           `${USER_API_URL}/${review.userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
         );
+
         console.log('User data fetched:', userResponse.data);
         return {userId: review.userId, username: userResponse.data.username};
       });
@@ -396,6 +452,25 @@ const ProductDetailScreen = ({navigation, route}: any) => {
                     <Icon name="logout" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng xuất</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleOrderPress}>
+                    <Icon name="history" size={22} color="black" />
+                    <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleCartPress}>
+                    <Icon name="cart-outline" size={22} color="black" />
+                    <Text style={styles.menuText}>Giỏ hàng</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleFavoritePress}>
+                    <Icon name="heart-outline" size={22} color="black" />
+                    <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>
@@ -414,21 +489,6 @@ const ProductDetailScreen = ({navigation, route}: any) => {
                   </TouchableOpacity>
                 </>
               )}
-
-              <TouchableOpacity style={styles.menuItem}>
-                <Icon name="cart-outline" size={22} color="black" />
-                <Text style={styles.menuText}>Giỏ hàng</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.menuItem}>
-                <Icon name="history" size={22} color="black" />
-                <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.menuItem}>
-                <Icon name="heart-outline" size={22} color="black" />
-                <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </TouchableWithoutFeedback>
@@ -665,6 +725,19 @@ const ProductDetailScreen = ({navigation, route}: any) => {
         )}
         {activeTab === 'qna' && <Text>{product.qna}</Text>}
       </View>
+      {discountCodes.length > 0 && (
+        <View style={styles.discountContainer}>
+          <Text style={styles.discountTitle}>Thu nhập mã giảm giá</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {discountCodes.map((code, index) => (
+              <View key={index} style={styles.discountItem}>
+                <Text style={styles.discountText}>{code.code}</Text>
+                <Text style={styles.discountText}>{code.description}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <FooterComponent />
     </ScrollView>
@@ -1054,5 +1127,33 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontSize: 16,
+  },
+  discountContainer: {
+    padding: 20,
+    marginTop: 20,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2, // for Android shadow
+  },
+  discountTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  discountItem: {
+    marginRight: 15, // space between each discount code
+    backgroundColor: '#eee', // Optional: add background color for each item
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 20, // Optional: round the corners
+  },
+  discountText: {
+    fontSize: 16,
+    color: '#333',
   },
 });

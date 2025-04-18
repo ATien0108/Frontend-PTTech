@@ -292,7 +292,11 @@ const HomeScreen = ({navigation, route}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
+      navigation.navigate('SearchScreen', {
+        query: searchQuery,
+        userId: userId,
+        accessToken: accessToken,
+      });
     }
   };
 
@@ -312,6 +316,15 @@ const HomeScreen = ({navigation, route}: any) => {
       navigation.navigate('CartScreen', {userId, accessToken});
     } else {
       Alert.alert('Bạn cần đăng nhập để xem giỏ hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleFavoritePress = () => {
+    if (accessToken && userId) {
+      navigation.navigate('FavoriteScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem sản phẩm yêu thích.');
       navigation.navigate('LoginScreen');
     }
   };
@@ -378,6 +391,12 @@ const HomeScreen = ({navigation, route}: any) => {
                     <Icon name="cart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Giỏ hàng</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleFavoritePress}>
+                    <Icon name="heart-outline" size={22} color="black" />
+                    <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>
@@ -396,11 +415,6 @@ const HomeScreen = ({navigation, route}: any) => {
                   </TouchableOpacity>
                 </>
               )}
-
-              <TouchableOpacity style={styles.menuItem}>
-                <Icon name="heart-outline" size={22} color="black" />
-                <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </TouchableWithoutFeedback>
@@ -422,6 +436,8 @@ const HomeScreen = ({navigation, route}: any) => {
                   navigation.navigate('CategoryScreen', {
                     categoryId: item.id,
                     categoryName: item.name,
+                    userId: userId,
+                    accessToken: accessToken,
                   })
                 }>
                 <Text style={styles.categoryText}>{item.name}</Text>
@@ -458,7 +474,12 @@ const HomeScreen = ({navigation, route}: any) => {
         data={topRatedProductsData}
         keyExtractor={item => item.id}
         renderItem={({item}) => (
-          <ProductCard product={item} navigation={navigation} />
+          <ProductCard
+            product={item}
+            navigation={navigation}
+            userId={userId}
+            accessToken={accessToken}
+          />
         )}
         showsHorizontalScrollIndicator={false}
         style={{marginBottom: 24}}
@@ -499,7 +520,12 @@ const HomeScreen = ({navigation, route}: any) => {
         data={topSellingProductsData}
         keyExtractor={item => item.id}
         renderItem={({item}) => (
-          <ProductCard product={item} navigation={navigation} />
+          <ProductCard
+            product={item}
+            navigation={navigation}
+            userId={userId}
+            accessToken={accessToken}
+          />
         )}
         showsHorizontalScrollIndicator={false}
         style={{marginBottom: 24}}
@@ -525,6 +551,8 @@ const HomeScreen = ({navigation, route}: any) => {
                   navigation.navigate('BrandScreen', {
                     brandId: item.id,
                     brandName: item.name,
+                    userId: userId,
+                    accessToken: accessToken,
                   })
                 }>
                 <Text style={styles.brandText}>{item.name}</Text>
@@ -540,17 +568,46 @@ const HomeScreen = ({navigation, route}: any) => {
   );
 };
 
-const ProductCard: React.FC<{product: Product; navigation: any}> = ({
-  product,
-  navigation,
-}) => {
+const ProductCard: React.FC<{
+  product: Product;
+  navigation: any;
+  userId: string;
+  accessToken: string;
+}> = ({product, navigation, userId, accessToken}) => {
   const totalStars = 5;
   const averageRating = product.ratings.average;
-
   const fullStars = '⭐'.repeat(Math.floor(averageRating));
   const emptyStars = '☆'.repeat(totalStars - Math.floor(averageRating));
   const starRating = fullStars + emptyStars;
   const [brandName, setBrandName] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    checkFavoriteStatus();
+  }, []);
+
+  const checkFavoriteStatus = async () => {
+    const favoriteData = await AsyncStorage.getItem('favorites');
+    const favorites: Product[] = favoriteData ? JSON.parse(favoriteData) : [];
+    const isFav = favorites.some(item => item.id === product.id);
+    setIsFavorite(isFav);
+  };
+
+  const toggleFavorite = async () => {
+    const favoriteData = await AsyncStorage.getItem('favorites');
+    let favorites: Product[] = favoriteData ? JSON.parse(favoriteData) : [];
+
+    const index = favorites.findIndex(item => item.id === product.id);
+    if (index !== -1) {
+      favorites.splice(index, 1);
+      setIsFavorite(false);
+    } else {
+      favorites.push(product);
+      setIsFavorite(true);
+    }
+
+    await AsyncStorage.setItem('favorites', JSON.stringify(favorites));
+  };
 
   useEffect(() => {
     const fetchBrandName = async () => {
@@ -578,9 +635,22 @@ const ProductCard: React.FC<{product: Product; navigation: any}> = ({
     <TouchableOpacity
       style={styles.productCard}
       onPress={() =>
-        navigation.navigate('ProductDetailScreen', {productId: product.id})
+        navigation.navigate('ProductDetailScreen', {
+          productId: product.id,
+          userId,
+          accessToken,
+        })
       }>
       <Image source={{uri: product.images[0]}} style={styles.productImage} />
+      <TouchableOpacity
+        onPress={toggleFavorite}
+        style={{position: 'absolute', top: 8, right: 8}}>
+        <Icon
+          name={isFavorite ? 'heart' : 'heart-outline'}
+          size={24}
+          color={isFavorite ? 'red' : 'gray'}
+        />
+      </TouchableOpacity>
       <Text style={styles.brandName}>
         {brandName || 'Đang tải thương hiệu...'}
       </Text>

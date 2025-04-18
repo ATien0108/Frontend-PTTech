@@ -46,16 +46,13 @@ const LoginScreen = ({navigation}: any) => {
         },
       });
 
-      // Sau khi đăng nhập thành công
       if (response.status === 200) {
         console.log('Đăng nhập thành công:', response.data);
         const {userId, accessToken} = response.data;
 
-        // Lưu vào AsyncStorage
         await AsyncStorage.setItem('userId', userId);
         await AsyncStorage.setItem('accessToken', accessToken);
 
-        // Chuyển hướng đến màn hình HomeScreen với các tham số cần thiết
         navigation.navigate('HomeScreen', {
           userId: userId,
           accessToken: accessToken,

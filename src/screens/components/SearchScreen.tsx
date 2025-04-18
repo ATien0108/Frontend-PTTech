@@ -8,10 +8,15 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Alert,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import {HeaderComponent} from '../../components';
 import {FooterComponent} from '../../components';
 import {appColors} from '../../constants/appColors';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Product {
   id: string;
@@ -42,6 +47,100 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
   const [query, setQuery] = useState<string>(initialQuery || '');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const {userId, accessToken} = route.params || {};
+
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (userId && accessToken) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+    };
+
+    checkLoginStatus();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('accessToken');
+      setIsLoggedIn(false);
+      navigation.navigate('HomeScreen');
+    } catch (error) {
+      console.error('Lỗi khi đăng xuất:', error);
+      Alert.alert('Lỗi', 'Đã xảy ra lỗi khi đăng xuất.');
+    }
+  };
+
+  const handleLoginPress = () => {
+    if (!isLoggedIn) {
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const toggleMenu = () => {
+    setIsMenuVisible(!isMenuVisible);
+  };
+
+  const handleProfilePress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to ProfileScreen with:', {userId});
+      navigation.navigate('ProfileScreen', {userId: userId});
+    } else {
+      Alert.alert(
+        'Thông báo',
+        'Bạn cần đăng nhập để truy cập trang cá nhân.',
+        [
+          {
+            text: 'Đăng nhập',
+            onPress: () => {
+              navigation.navigate('LoginScreen');
+            },
+          },
+          {
+            text: 'Hủy',
+            style: 'cancel',
+          },
+        ],
+        {cancelable: false},
+      );
+    }
+  };
+
+  const handleOrderPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to OrderScreen with userId:', userId);
+      navigation.navigate('OrderScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem lịch sử đơn hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleCartPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to CartScreen with userId:', userId);
+      navigation.navigate('CartScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem giỏ hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleFavoritePress = () => {
+    if (accessToken && userId) {
+      navigation.navigate('FavoriteScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem sản phẩm yêu thích.');
+      navigation.navigate('LoginScreen');
+    }
+  };
 
   useEffect(() => {
     if (query) {
@@ -144,7 +243,80 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
 
   return (
     <ScrollView style={styles.container}>
-      <HeaderComponent />
+      <View style={styles.header}>
+        <Text style={styles.titleHeader}>PTTechShop</Text>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+          <Icon name="menu" size={24} color="black" />
+        </TouchableOpacity>
+      </View>
+
+      <Modal visible={isMenuVisible} animationType="slide" transparent>
+        <TouchableWithoutFeedback onPress={toggleMenu}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.menuContainer}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('HomeScreen')}>
+                <Icon name="home-outline" size={22} color="black" />
+                <Text style={styles.menuText}>Trang chủ</Text>
+              </TouchableOpacity>
+
+              {isLoggedIn ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleProfilePress}>
+                    <Icon name="account-outline" size={22} color="black" />
+                    <Text style={styles.menuText}>Thông tin cá nhân</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleLogout}>
+                    <Icon name="logout" size={22} color="black" />
+                    <Text style={styles.menuText}>Đăng xuất</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleOrderPress}>
+                    <Icon name="history" size={22} color="black" />
+                    <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleCartPress}>
+                    <Icon name="cart-outline" size={22} color="black" />
+                    <Text style={styles.menuText}>Giỏ hàng</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleFavoritePress}>
+                    <Icon name="heart-outline" size={22} color="black" />
+                    <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={handleLoginPress}>
+                    <Icon name="login" size={22} color="black" />
+                    <Text style={styles.menuText}>Đăng nhập</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => navigation.navigate('RegisterScreen')}>
+                    <Icon name="account-plus" size={22} color="black" />
+                    <Text style={styles.menuText}>Đăng ký</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
       <View style={styles.container}>
         <TextInput
           style={styles.searchInput}
@@ -370,6 +542,57 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  menuButton: {
+    padding: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    width: '80%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+  },
+
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  menuText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    color: 'black',
+  },
+
+  title: {
+    fontSize: 35,
+    marginBottom: 10,
+    color: '#D10000',
+    textAlign: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#E99689',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 2,
+    borderColor: '#000',
+  },
+  titleHeader: {
+    fontSize: 20,
+    fontStyle: 'italic',
+    fontWeight: 'bold',
+    color: 'black',
   },
 });
 

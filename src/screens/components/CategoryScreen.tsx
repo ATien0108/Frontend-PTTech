@@ -13,7 +13,6 @@ import {
   Alert,
 } from 'react-native';
 import {appColors} from '../../constants/appColors';
-import {HeaderComponent} from '../../components';
 import {FooterComponent} from '../../components';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,7 +40,7 @@ interface Product {
 }
 
 const CategoryScreen = ({route, navigation}: any) => {
-  const {userId} = route.params || {};
+  const {userId, accessToken} = route.params || {};
   const {categoryId, categoryName} = route.params;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,11 +85,9 @@ const CategoryScreen = ({route, navigation}: any) => {
   };
 
   const handleProfilePress = () => {
-    console.log('Navigating to ProfileScreen with:', {userId});
-    if (userId) {
-      navigation.navigate('ProfileScreen', {
-        userId: userId,
-      });
+    if (accessToken && userId) {
+      console.log('Navigating to ProfileScreen with:', {userId});
+      navigation.navigate('ProfileScreen', {userId: userId});
     } else {
       Alert.alert(
         'Thông báo',
@@ -115,6 +112,35 @@ const CategoryScreen = ({route, navigation}: any) => {
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
       navigation.navigate('SearchScreen', {query: searchQuery});
+    }
+  };
+
+  const handleOrderPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to OrderScreen with userId:', userId);
+      navigation.navigate('OrderScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem lịch sử đơn hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleCartPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to CartScreen with userId:', userId);
+      navigation.navigate('CartScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem giỏ hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleFavoritePress = () => {
+    if (accessToken && userId) {
+      navigation.navigate('FavoriteScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem sản phẩm yêu thích.');
+      navigation.navigate('LoginScreen');
     }
   };
 
@@ -289,6 +315,25 @@ const CategoryScreen = ({route, navigation}: any) => {
                         <Icon name="logout" size={22} color="black" />
                         <Text style={styles.menuText}>Đăng xuất</Text>
                       </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={handleOrderPress}>
+                        <Icon name="history" size={22} color="black" />
+                        <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={handleCartPress}>
+                        <Icon name="cart-outline" size={22} color="black" />
+                        <Text style={styles.menuText}>Giỏ hàng</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={handleFavoritePress}>
+                        <Icon name="heart-outline" size={22} color="black" />
+                        <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
+                      </TouchableOpacity>
                     </>
                   ) : (
                     <>
@@ -307,21 +352,6 @@ const CategoryScreen = ({route, navigation}: any) => {
                       </TouchableOpacity>
                     </>
                   )}
-
-                  <TouchableOpacity style={styles.menuItem}>
-                    <Icon name="cart-outline" size={22} color="black" />
-                    <Text style={styles.menuText}>Giỏ hàng</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.menuItem}>
-                    <Icon name="history" size={22} color="black" />
-                    <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.menuItem}>
-                    <Icon name="heart-outline" size={22} color="black" />
-                    <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             </TouchableWithoutFeedback>
