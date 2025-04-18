@@ -1,97 +1,52 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 📱 PTTech - Ứng dụng Kinh Doanh Sản Phẩm Công Nghệ
 
-# Getting Started
+## 👨‍👩‍👧‍👦 THÔNG TIN NHÓM 01
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+- **Đào Duy Phát** - MSSV: 21110270  
+- **Trần Thị Á Tiên** - MSSV: 21110318
 
-## Step 1: Start Metro
+## 🎯 Đề tài:
+**Xây dựng App kinh doanh các sản phẩm công nghệ PTTech**
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+---
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## ✅ Các chức năng đã hoàn thành:
 
-```sh
-# Using npm
-npm start
+### 🔐 Xác thực người dùng
+- Đăng ký tài khoản (Register), Đăng nhập (Login), Quên mật khẩu (Forget Password) có sử dụng OTP gửi qua email.
+- Chỉnh sửa hồ sơ người dùng (Profile) sau khi đăng nhập thành công.
 
-# OR using Yarn
-yarn start
-```
+### 🛍️ Quản lý sản phẩm & danh mục
+- Hiển thị tất cả **danh mục** và **thương hiệu** theo chiều ngang của màn hình.
+- Hiển thị **sản phẩm bán chạy**, **sản phẩm khuyến mãi** trên trang chủ.
+- Hiển thị tất cả sản phẩm theo **danh mục**.
+- Hiển thị tất cả sản phẩm theo **thương hiệu**.
 
-## Step 2: Build and run your app
+### 🔎 Tìm kiếm & trình bày
+- Thanh **menu đầu trang** giúp chuyển hướng nhanh.
+- Tìm kiếm sản phẩm theo tên tại **thanh tìm kiếm** trên menu.
+- Xem **chi tiết sản phẩm** từ trang chủ hoặc từ kết quả tìm kiếm.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+### 🛒 Đặt hàng & thanh toán
+- **Giỏ hàng** với chức năng thêm, xoá sản phẩm.
+- **Thanh toán đơn hàng** với phương thức bắt buộc là **COD (Cash On Delivery)**.
+- Xem lại **lịch sử mua hàng**.
 
-### Android
+### ❤️ Tính năng người dùng nâng cao
+- **Đánh giá sản phẩm** đã mua thành công.
+- **Thêm vào danh sách yêu thích** (Yêu thích sản phẩm).
+- **Thống kê dòng tiền và tổng số đơn hàng** trong lịch sử mua hàng, bao gồm các trạng thái:
+  - Chờ xác nhận
+  - Đang giao
+  - Đã giao
 
-```sh
-# Using npm
-npm run android
+---
 
-# OR using Yarn
-yarn android
-```
+## 🚀 Công nghệ sử dụng:
+- **React Native** cho giao diện người dùng.
+- **Java Spring Boot**
+- **MongoDB Cloud**
 
-### iOS
+---
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Cảm ơn thầy và các bạn đã theo dõi dự án của nhóm ❤️
