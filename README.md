@@ -49,4 +49,23 @@
 
 ---
 
+## ⚙️ Hướng dẫn cài đặt Frontend (React Native)
+
+Làm theo các bước dưới đây để cài đặt và chạy ứng dụng PTTech trên thiết bị Android:
+
+### Bước 1: Tải mã nguồn frontend
+Tải source code frontend từ GitHub: https://github.com/ATien0108/Frontend-PTTech
+
+
+### Bước 2: Mở terminal tại thư mục dự án
+Điều hướng vào thư mục: Frontend-PTTech
+
+### Bước 3: Cài đặt các thư viện cần thiết
+npm install
+
+### Bước 4: Chạy ứng dụng trên thiết bị Android
+npm run android
+
+---
+
 Cảm ơn thầy và các bạn đã theo dõi dự án của nhóm ❤️
