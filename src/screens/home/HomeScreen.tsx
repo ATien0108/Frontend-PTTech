@@ -63,8 +63,11 @@ interface AdImages {
   title: string;
 }
 
-const handleSeeMore = () => {
-  console.log('Xem thêm sản phẩm');
+const getValidImageUri = (uri: string) => {
+  if (uri.includes('localhost')) {
+    return uri.replace('localhost', '10.0.2.2');
+  }
+  return uri;
 };
 
 const HomeScreen = ({navigation, route}: any) => {
@@ -87,6 +90,57 @@ const HomeScreen = ({navigation, route}: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const flatListRef = useRef<FlatList<any>>(null);
+
+  useEffect(() => {
+    if (brandsData.length === 0) return;
+
+    let offset = 0;
+
+    const intervalId = setInterval(() => {
+      if (flatListRef.current) {
+        offset += 200;
+
+        if (offset >= brandsData.length * 200) {
+          offset = 0;
+
+          const firstItem = brandsData[0];
+          brandsData.push(firstItem);
+          brandsData.shift();
+        }
+
+        flatListRef.current.scrollToOffset({offset, animated: true});
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [brandsData]);
+
+  const categoryFlatListRef = useRef<FlatList<any>>(null);
+
+  useEffect(() => {
+    if (categoriesData.length === 0) return;
+
+    let offset = 0;
+
+    const intervalId = setInterval(() => {
+      if (categoryFlatListRef.current) {
+        offset += 200;
+
+        if (offset >= categoriesData.length * 200) {
+          offset = 0;
+          const firstItem = categoriesData[0];
+          categoriesData.push(firstItem);
+          categoriesData.shift();
+        }
+
+        categoryFlatListRef.current.scrollToOffset({offset, animated: true});
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [categoriesData]);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -250,6 +304,13 @@ const HomeScreen = ({navigation, route}: any) => {
     return () => clearInterval(intervalId);
   }, [adimagesData]);
 
+  const handleSeeMore = () => {
+    navigation.navigate('AllProductScreen', {
+      userId: userId,
+      accessToken: accessToken,
+    });
+  };
+
   useEffect(() => {
     const fetchTopSellingProducts = async () => {
       try {
@@ -332,7 +393,13 @@ const HomeScreen = ({navigation, route}: any) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>PTTechShop</Text>
+        <Text
+          style={styles.title}
+          onPress={() =>
+            navigation.navigate('HomeScreen', {userId, accessToken})
+          }>
+          PTTechShop
+        </Text>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="black" />
         </TouchableOpacity>
@@ -358,7 +425,9 @@ const HomeScreen = ({navigation, route}: any) => {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('HomeScreen')}>
+                onPress={() =>
+                  navigation.navigate('HomeScreen', {userId, accessToken})
+                }>
                 <Icon name="home-outline" size={22} color="black" />
                 <Text style={styles.menuText}>Trang chủ</Text>
               </TouchableOpacity>
@@ -427,6 +496,7 @@ const HomeScreen = ({navigation, route}: any) => {
           <Text>{error}</Text>
         ) : (
           <FlatList
+            ref={categoryFlatListRef}
             horizontal
             data={categoriesData}
             keyExtractor={item => item.id}
@@ -444,6 +514,7 @@ const HomeScreen = ({navigation, route}: any) => {
               </TouchableOpacity>
             )}
             showsHorizontalScrollIndicator={false}
+            onScrollToIndexFailed={() => {}}
           />
         )}
       </View>
@@ -542,6 +613,7 @@ const HomeScreen = ({navigation, route}: any) => {
           <Text>{error}</Text>
         ) : (
           <FlatList
+            ref={flatListRef}
             horizontal
             data={brandsData}
             keyExtractor={item => item.id}
@@ -551,14 +623,18 @@ const HomeScreen = ({navigation, route}: any) => {
                   navigation.navigate('BrandScreen', {
                     brandId: item.id,
                     brandName: item.name,
-                    userId: userId,
-                    accessToken: accessToken,
+                    userId,
+                    accessToken,
                   })
                 }>
-                <Text style={styles.brandText}>{item.name}</Text>
+                <Image
+                  source={{uri: getValidImageUri(item.logo)}} // Đảm bảo đường dẫn hình ảnh hợp lệ
+                  style={styles.brandLogo} // Style cho logo
+                />{' '}
               </TouchableOpacity>
             )}
             showsHorizontalScrollIndicator={false}
+            onScrollToIndexFailed={() => {}}
           />
         )}
       </View>
@@ -641,7 +717,10 @@ const ProductCard: React.FC<{
           accessToken,
         })
       }>
-      <Image source={{uri: product.images[0]}} style={styles.productImage} />
+      <Image
+        source={{uri: getValidImageUri(product.images[0])}}
+        style={styles.productImage}
+      />
       <TouchableOpacity
         onPress={toggleFavorite}
         style={{position: 'absolute', top: 8, right: 8}}>
@@ -918,5 +997,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontWeight: '500',
     color: 'black',
+  },
+  brandLogo: {
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
+    marginHorizontal: 10,
   },
 });

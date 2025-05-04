@@ -84,6 +84,13 @@ const CartScreen = ({navigation, route}: any) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const getValidImageUri = (uri: string) => {
+    if (uri.includes('localhost')) {
+      return uri.replace('localhost', '10.0.2.2');
+    }
+    return uri;
+  };
+
   useEffect(() => {
     const checkLoginStatus = async () => {
       const userId = await AsyncStorage.getItem('userId');
@@ -147,7 +154,11 @@ const CartScreen = ({navigation, route}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
+      navigation.navigate('SearchScreen', {
+        query: searchQuery,
+        userId: userId,
+        accessToken: accessToken,
+      });
     }
   };
 
@@ -157,6 +168,16 @@ const CartScreen = ({navigation, route}: any) => {
       navigation.navigate('OrderScreen', {userId, accessToken});
     } else {
       Alert.alert('Bạn cần đăng nhập để xem lịch sử đơn hàng.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
+  const handleCartPress = () => {
+    if (accessToken && userId) {
+      console.log('Navigating to CartScreen with userId:', userId);
+      navigation.navigate('CartScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem giỏ hàng.');
       navigation.navigate('LoginScreen');
     }
   };
@@ -377,20 +398,27 @@ const CartScreen = ({navigation, route}: any) => {
       console.log('Đáp ứng từ server sau khi đặt hàng: ', response.data);
       Alert.alert('Đặt hàng thành công!');
 
-      const updatedCart = {...cart};
-      updatedCart.items = [];
+      await Promise.all(
+        cart.items.map(item =>
+          axios.delete(
+            `http://10.0.2.2:8081/api/carts/${cart.id}/items/${item.productId}/${item.variantId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            },
+          ),
+        ),
+      );
 
-      try {
-        await axios.delete(`http://10.0.2.2:8081/api/carts/${cart?.id}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-      } catch (error) {
-        console.error('Lỗi khi xóa giỏ hàng:', error);
-      }
-
-      setCart(updatedCart);
+      // 🧼 Reset giỏ hàng ở client
+      setCart({
+        ...cart,
+        items: [],
+        totalItems: 0,
+        totalPrice: 0,
+        updatedAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error submitting order:', error);
       Alert.alert('Đã có lỗi xảy ra. Vui lòng thử lại.');
@@ -452,14 +480,20 @@ const CartScreen = ({navigation, route}: any) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>PTTechShop</Text>
+        <Text
+          style={styles.titleHeader}
+          onPress={() =>
+            navigation.navigate('HomeScreen', {userId, accessToken})
+          }>
+          PTTechShop
+        </Text>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="black" />
         </TouchableOpacity>
       </View>
 
       <Modal visible={isMenuVisible} animationType="slide" transparent>
-        <TouchableWithoutFeedback onPress={toggleMenu}>
+        <TouchableWithoutFeedback>
           <View style={styles.modalOverlay}>
             <View style={styles.menuContainer}>
               <View style={styles.searchContainer}>
@@ -478,7 +512,9 @@ const CartScreen = ({navigation, route}: any) => {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('HomeScreen')}>
+                onPress={() =>
+                  navigation.navigate('HomeScreen', {userId, accessToken})
+                }>
                 <Icon name="home-outline" size={22} color="black" />
                 <Text style={styles.menuText}>Trang chủ</Text>
               </TouchableOpacity>
@@ -487,28 +523,40 @@ const CartScreen = ({navigation, route}: any) => {
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleProfilePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleProfilePress();
+                    }}>
                     <Icon name="account-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Thông tin cá nhân</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLogout}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLogout();
+                    }}>
                     <Icon name="logout" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng xuất</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleOrderPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleOrderPress();
+                    }}>
                     <Icon name="history" size={22} color="black" />
                     <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleFavoritePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleFavoritePress();
+                    }}>
                     <Icon name="heart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
                   </TouchableOpacity>
@@ -517,7 +565,10 @@ const CartScreen = ({navigation, route}: any) => {
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLoginPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLoginPress();
+                    }}>
                     <Icon name="login" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng nhập</Text>
                   </TouchableOpacity>
@@ -536,16 +587,29 @@ const CartScreen = ({navigation, route}: any) => {
       </Modal>
       <Text style={styles.title}>Giỏ hàng</Text>
       {cart.items.map((item, index) => (
-        <View key={index} style={styles.itemCard}>
+        <TouchableOpacity
+          key={index}
+          style={styles.itemCard}
+          onPress={() => {
+            // Chuyển đến màn hình ProductDetailScreen khi nhấn vào bất kỳ khu vực nào trong khung sản phẩm
+            navigation.navigate('ProductDetailScreen', {
+              productId: item.productId, // Truyền ID sản phẩm
+              userId, // Truyền userId nếu cần thiết
+              accessToken, // Truyền accessToken nếu cần thiết
+            });
+          }}>
           <Image
-            source={{uri: item.productImage}}
+            source={{uri: getValidImageUri(item.productImage)}}
             style={styles.productImage}
           />
           <View style={styles.itemDetails}>
             <Text style={styles.productName}>{item.productName}</Text>
             <Text style={styles.productDesc}>
-              {item.color} - {item.storage} - {item.condition}
+              {[item.color, item.storage, item.condition]
+                .filter(value => value && value.trim() !== '')
+                .join(' - ')}
             </Text>
+
             <Text>
               <Text style={styles.discountPrice}>
                 {formatCurrency(item.discountPrice)}
@@ -574,7 +638,7 @@ const CartScreen = ({navigation, route}: any) => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       ))}
 
       <View style={styles.summary}>
@@ -584,13 +648,6 @@ const CartScreen = ({navigation, route}: any) => {
           <Text style={styles.summaryText}>Tạm tính:</Text>
           <Text style={styles.summaryText}>
             {formatCurrency(cart.totalPrice)}{' '}
-          </Text>
-        </View>
-
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryText}>Giảm giá:</Text>
-          <Text style={styles.summaryText}>
-            {formatCurrency(calculateTotalDiscount())}{' '}
           </Text>
         </View>
 
@@ -606,7 +663,7 @@ const CartScreen = ({navigation, route}: any) => {
           </Text>
         </View>
 
-        <Text style={styles.inputLabel}>Mã giảm giá:</Text>
+        <Text style={styles.inputLabel}>Mã giảm giá</Text>
         <TextInput
           style={styles.input}
           value={discountCode}
@@ -614,7 +671,7 @@ const CartScreen = ({navigation, route}: any) => {
           placeholder="Nhập mã giảm giá"
         />
 
-        <Text style={styles.inputLabel}>Họ và tên:</Text>
+        <Text style={styles.inputLabel}>Họ và tên</Text>
         <TextInput
           style={styles.input}
           value={fullName}
@@ -622,7 +679,7 @@ const CartScreen = ({navigation, route}: any) => {
           placeholder="Nhập họ và tên"
         />
 
-        <Text style={styles.inputLabel}>Số điện thoại:</Text>
+        <Text style={styles.inputLabel}>Số điện thoại</Text>
         <TextInput
           style={styles.input}
           value={phoneNumber}
@@ -631,7 +688,7 @@ const CartScreen = ({navigation, route}: any) => {
           keyboardType="phone-pad"
         />
 
-        <Text style={styles.inputLabel}>Địa chỉ:</Text>
+        <Text style={styles.inputLabel}>Địa chỉ</Text>
         <TextInput
           style={styles.input}
           value={street}
@@ -662,12 +719,12 @@ const CartScreen = ({navigation, route}: any) => {
           onChangeText={setCountry}
           placeholder="Quốc gia"
         />
-
+        <Text style={styles.inputLabel}>Ghi chú đơn hàng</Text>
         <TextInput
           style={styles.input}
           value={orderNotes}
           onChangeText={setOrderNotes}
-          placeholder="Ghi chú đơn hàng"
+          placeholder="Nhập ghi chú"
         />
 
         <Button title="Thanh toán" onPress={handleOrderSubmission} />

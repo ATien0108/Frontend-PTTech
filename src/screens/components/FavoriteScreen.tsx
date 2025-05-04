@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {
   View,
   FlatList,
@@ -24,6 +24,17 @@ const FavoriteScreen = ({navigation, route}: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
+
+  const totalPages = Math.ceil(favorites.length / pageSize);
+
+  const paginatedFavorites = favorites.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -61,6 +72,13 @@ const FavoriteScreen = ({navigation, route}: any) => {
     setIsMenuVisible(!isMenuVisible);
   };
 
+  const getValidImageUri = (uri: string) => {
+    if (uri.includes('localhost')) {
+      return uri.replace('localhost', '10.0.2.2');
+    }
+    return uri;
+  };
+
   const handleProfilePress = () => {
     if (accessToken && userId) {
       console.log('Navigating to ProfileScreen with:', {userId});
@@ -88,7 +106,11 @@ const FavoriteScreen = ({navigation, route}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
+      navigation.navigate('SearchScreen', {
+        query: searchQuery,
+        userId: userId,
+        accessToken: accessToken,
+      });
     }
   };
 
@@ -172,9 +194,16 @@ const FavoriteScreen = ({navigation, route}: any) => {
       <TouchableOpacity
         style={styles.productCard}
         onPress={() =>
-          navigation.navigate('ProductDetailScreen', {productId: product.id})
+          navigation.navigate('ProductDetailScreen', {
+            productId: product.id,
+            userId,
+            accessToken,
+          })
         }>
-        <Image source={{uri: product.images[0]}} style={styles.productImage} />
+        <Image
+          source={{uri: getValidImageUri(product.images[0])}}
+          style={styles.productImage}
+        />
         <TouchableOpacity
           onPress={() => onRemove(product.id)}
           style={styles.heartIcon}>
@@ -219,17 +248,24 @@ const FavoriteScreen = ({navigation, route}: any) => {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView ref={scrollRef} style={styles.container}>
+      {' '}
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.titleHeader}>PTTechShop</Text>
+          <Text
+            style={styles.titleHeader}
+            onPress={() =>
+              navigation.navigate('HomeScreen', {userId, accessToken})
+            }>
+            PTTechShop
+          </Text>
           <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
             <Icon name="menu" size={24} color="black" />
           </TouchableOpacity>
         </View>
 
         <Modal visible={isMenuVisible} animationType="slide" transparent>
-          <TouchableWithoutFeedback onPress={toggleMenu}>
+          <TouchableWithoutFeedback>
             <View style={styles.modalOverlay}>
               <View style={styles.menuContainer}>
                 <View style={styles.searchContainer}>
@@ -248,7 +284,9 @@ const FavoriteScreen = ({navigation, route}: any) => {
 
                 <TouchableOpacity
                   style={styles.menuItem}
-                  onPress={() => navigation.navigate('HomeScreen')}>
+                  onPress={() =>
+                    navigation.navigate('HomeScreen', {userId, accessToken})
+                  }>
                   <Icon name="home-outline" size={22} color="black" />
                   <Text style={styles.menuText}>Trang chủ</Text>
                 </TouchableOpacity>
@@ -257,27 +295,39 @@ const FavoriteScreen = ({navigation, route}: any) => {
                   <>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={handleProfilePress}>
+                      onPress={() => {
+                        toggleMenu();
+                        handleProfilePress();
+                      }}>
                       <Icon name="account-outline" size={22} color="black" />
                       <Text style={styles.menuText}>Thông tin cá nhân</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={handleLogout}>
+                      onPress={() => {
+                        toggleMenu();
+                        handleLogout();
+                      }}>
                       <Icon name="logout" size={22} color="black" />
                       <Text style={styles.menuText}>Đăng xuất</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={handleOrderPress}>
+                      onPress={() => {
+                        toggleMenu();
+                        handleOrderPress();
+                      }}>
                       <Icon name="history" size={22} color="black" />
                       <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={handleCartPress}>
+                      onPress={() => {
+                        toggleMenu();
+                        handleCartPress();
+                      }}>
                       <Icon name="cart-outline" size={22} color="black" />
                       <Text style={styles.menuText}>Giỏ hàng</Text>
                     </TouchableOpacity>
@@ -286,7 +336,10 @@ const FavoriteScreen = ({navigation, route}: any) => {
                   <>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={handleLoginPress}>
+                      onPress={() => {
+                        toggleMenu();
+                        handleLoginPress();
+                      }}>
                       <Icon name="login" size={22} color="black" />
                       <Text style={styles.menuText}>Đăng nhập</Text>
                     </TouchableOpacity>
@@ -305,12 +358,35 @@ const FavoriteScreen = ({navigation, route}: any) => {
         </Modal>
         <Text style={styles.title}>Sản phẩm yêu thích</Text>
         <FlatList
-          data={favorites}
+          data={paginatedFavorites}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           numColumns={2}
           contentContainerStyle={styles.list}
         />
+        <View style={styles.paginationContainer}>
+          {Array.from({length: totalPages}, (_, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.pageButton,
+                currentPage === index + 1 && styles.pageButtonActive,
+              ]}
+              onPress={() => {
+                setCurrentPage(index + 1);
+                scrollRef.current?.scrollTo({y: 0, animated: true});
+              }}>
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  currentPage === index + 1 && styles.pageButtonTextActive,
+                ]}>
+                {index + 1}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <FooterComponent />
       </View>
     </ScrollView>
@@ -343,10 +419,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   productImage: {
-    height: 120,
-    borderRadius: 8,
-    resizeMode: 'cover',
-    marginBottom: 8,
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
   },
   productName: {fontSize: 16, fontWeight: '500'},
   productPrice: {
@@ -449,6 +524,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: appColors.text_black,
     textDecorationLine: 'line-through',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  pageButton: {
+    padding: 8,
+    marginHorizontal: 4,
+    borderRadius: 4,
+    backgroundColor: '#eee',
+  },
+  pageButtonActive: {
+    backgroundColor: '#000',
+  },
+  pageButtonText: {
+    color: '#000',
+  },
+  pageButtonTextActive: {
+    color: '#fff',
   },
 });
 

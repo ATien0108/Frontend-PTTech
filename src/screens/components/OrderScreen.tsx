@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  FlatList,
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -74,6 +75,13 @@ export interface ShippingAddress {
   city: string;
   country: string;
 }
+
+const getValidImageUri = (uri: string) => {
+  if (uri.includes('localhost')) {
+    return uri.replace('localhost', '10.0.2.2');
+  }
+  return uri;
+};
 
 const formatCurrency = (value: number) => {
   return value.toLocaleString('vi-VN', {
@@ -138,6 +146,59 @@ const OrderScreen = ({navigation, route}: any) => {
   const totalDeliveringOrders = deliveringOrders.length;
   const totalDeliveredOrders = deliveredOrders.length;
   const totalOrders = orders.length;
+  const [page, setPage] = useState(1);
+  const pageSize = 2;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [reviewedVariantsMap, setReviewedVariantsMap] = useState<
+    Record<string, Set<string>> // Sử dụng Set để tránh trùng lặp
+  >({});
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+
+  const statusOptions = [
+    'Chờ xác nhận',
+    'Chờ lấy hàng',
+    'Đã giao',
+    'Đang giao',
+    'Đã hủy',
+    'Đã trả hàng',
+  ];
+  const fetchAllReviewedVariants = async () => {
+    const reviewedMap: Record<string, Set<string>> = {}; // Dùng Set để lưu trữ các variant đã được đánh giá
+
+    const delivered = orders.filter(order => order.orderStatus === 'Đã giao');
+
+    try {
+      for (const order of delivered) {
+        const res = await axios.get(
+          `http://10.0.2.2:8081/api/reviews/order/${order.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        if (res && res.data) {
+          // Lọc các sản phẩm đã được đánh giá (không bị xóa)
+          const reviewedVariants = res.data
+            .filter((r: any) => !r.isDeleted)
+            .map((r: any) => r.productVariantId);
+
+          reviewedMap[order.id] = new Set(reviewedVariants); // Sử dụng Set để tránh trùng lặp
+        }
+      }
+
+      setReviewedVariantsMap(reviewedMap);
+    } catch (err) {
+      console.error('Lỗi khi lấy danh sách đánh giá:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (accessToken && orders.length > 0) {
+      fetchAllReviewedVariants();
+    }
+  }, [accessToken, orders]);
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -202,7 +263,11 @@ const OrderScreen = ({navigation, route}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
+      navigation.navigate('SearchScreen', {
+        query: searchQuery,
+        userId: userId,
+        accessToken: accessToken,
+      });
     }
   };
 
@@ -224,7 +289,6 @@ const OrderScreen = ({navigation, route}: any) => {
       navigation.navigate('LoginScreen');
     }
   };
-
   const getAccessToken = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
@@ -237,7 +301,10 @@ const OrderScreen = ({navigation, route}: any) => {
   };
 
   const fetchOrdersData = async () => {
+    console.log('Gọi fetchOrdersData'); // ✅
+
     if (!accessToken) {
+      console.warn('Không có accessToken');
       setError('Không có accessToken. Vui lòng đăng nhập lại.');
       setLoading(false);
       return;
@@ -252,8 +319,26 @@ const OrderScreen = ({navigation, route}: any) => {
           },
         },
       );
-      setOrders(response.data);
+
+      console.log('Response data:', response.data); // ✅
+
+      const data = response.data;
+      if (!Array.isArray(data)) {
+        console.error('Dữ liệu không phải là mảng:', data);
+        setError('Dữ liệu không hợp lệ từ server.');
+        setLoading(false);
+        return;
+      }
+
+      const sortedOrders = data.sort((a: any, b: any) => {
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+
+      setOrders(sortedOrders);
     } catch (error: any) {
+      console.error('Lỗi khi fetch đơn hàng:', error);
       if (error.response) {
         setError(
           `Lỗi từ server: ${error.response.status} - ${error.response.data}`,
@@ -266,9 +351,22 @@ const OrderScreen = ({navigation, route}: any) => {
         setError(`Lỗi: ${error.message}`);
       }
     } finally {
+      console.log('Kết thúc fetchOrdersData'); // ✅
       setLoading(false);
     }
   };
+
+  const filterOrdersByStatus = (orders: Order[], status: string | null) => {
+    if (!status) return orders;
+    return orders.filter(order => order.orderStatus === status);
+  };
+
+  const filteredOrders = filterOrdersByStatus(orders, filterStatus);
+  const totalPages = Math.ceil(filteredOrders.length / pageSize);
+  const paginatedOrders = filteredOrders.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
 
   const handleCancelOrReturn = async (
     orderId: string,
@@ -427,16 +525,22 @@ const OrderScreen = ({navigation, route}: any) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView ref={scrollViewRef} style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>PTTechShop</Text>
+        <Text
+          style={styles.titleHeader}
+          onPress={() =>
+            navigation.navigate('HomeScreen', {userId, accessToken})
+          }>
+          PTTechShop
+        </Text>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="black" />
         </TouchableOpacity>
       </View>
 
       <Modal visible={isMenuVisible} animationType="slide" transparent>
-        <TouchableWithoutFeedback onPress={toggleMenu}>
+        <TouchableWithoutFeedback>
           <View style={styles.modalOverlay}>
             <View style={styles.menuContainer}>
               <View style={styles.searchContainer}>
@@ -455,7 +559,9 @@ const OrderScreen = ({navigation, route}: any) => {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('HomeScreen')}>
+                onPress={() =>
+                  navigation.navigate('HomeScreen', {userId, accessToken})
+                }>
                 <Icon name="home-outline" size={22} color="black" />
                 <Text style={styles.menuText}>Trang chủ</Text>
               </TouchableOpacity>
@@ -464,27 +570,39 @@ const OrderScreen = ({navigation, route}: any) => {
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleProfilePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleProfilePress();
+                    }}>
                     <Icon name="account-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Thông tin cá nhân</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLogout}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLogout();
+                    }}>
                     <Icon name="logout" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng xuất</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleCartPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleCartPress();
+                    }}>
                     <Icon name="cart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Giỏ hàng</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleFavoritePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleFavoritePress();
+                    }}>
                     <Icon name="heart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
                   </TouchableOpacity>
@@ -493,7 +611,10 @@ const OrderScreen = ({navigation, route}: any) => {
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLoginPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLoginPress();
+                    }}>
                     <Icon name="login" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng nhập</Text>
                   </TouchableOpacity>
@@ -510,7 +631,30 @@ const OrderScreen = ({navigation, route}: any) => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
       <Text style={styles.title}>Lịch sử đơn hàng</Text>
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          onPress={() => setFilterStatus(null)}
+          style={styles.filterButton}>
+          <Text>Tất cả</Text>
+        </TouchableOpacity>
+        {[
+          'Chờ xác nhận',
+          'Chờ lấy hàng',
+          'Đã giao',
+          'Đang giao',
+          'Đã hủy',
+          'Đã trả hàng',
+        ].map(status => (
+          <TouchableOpacity
+            key={status}
+            onPress={() => setFilterStatus(status)}
+            style={styles.filterButton}>
+            <Text>{status}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <View style={styles.moneySummaryContainer}>
         <Text style={styles.totalOrderText}>
           Tổng số đơn hàng: {totalOrders} đơn (gồm tất cả trạng thái)
@@ -550,7 +694,7 @@ const OrderScreen = ({navigation, route}: any) => {
         </View>
       </View>
 
-      {orders.map(order => (
+      {paginatedOrders.map(order => (
         <View key={order.id} style={styles.card}>
           <View style={styles.orderHeader}>
             <Text style={styles.orderId}>Đơn hàng #{order.orderId}</Text>
@@ -564,16 +708,28 @@ const OrderScreen = ({navigation, route}: any) => {
 
           <Text style={styles.sectionTitle}>Chi tiết đơn hàng</Text>
           {order.items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
+            <TouchableOpacity
+              key={index}
+              style={styles.itemRow}
+              onPress={() => {
+                navigation.navigate('ProductDetailScreen', {
+                  productId: item.productId,
+                  userId,
+                  accessToken,
+                });
+              }}>
               <Image
-                source={{uri: item.productImage}}
+                source={{uri: getValidImageUri(item.productImage)}}
                 style={styles.productImage}
               />
               <View style={{flex: 1}}>
                 <Text style={styles.productName}>{item.productName}</Text>
                 <Text style={styles.productDesc}>
-                  {item.color} - {item.storage} - {item.condition}
+                  {[item.color, item.storage, item.condition]
+                    .filter(value => value && value.trim() !== '')
+                    .join(' - ')}
                 </Text>
+
                 <Text>Số lượng: {item.quantity}</Text>
                 <Text>
                   Đơn giá:{' '}
@@ -583,17 +739,18 @@ const OrderScreen = ({navigation, route}: any) => {
                 </Text>
               </View>
 
-              {order.orderStatus === 'Đã giao' && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedOrderItem(item);
-                    setShowReviewModal(true);
-                  }}
-                  style={styles.reviewButton}>
-                  <Text style={styles.reviewButtonText}>Đánh giá</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+              {order.orderStatus === 'Đã giao' &&
+                !reviewedVariantsMap[order.id]?.has(item.variantId) && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedOrderItem(item);
+                      setShowReviewModal(true);
+                    }}
+                    style={styles.reviewButton}>
+                    <Text style={styles.reviewButtonText}>Đánh giá</Text>
+                  </TouchableOpacity>
+                )}
+            </TouchableOpacity>
           ))}
 
           <View style={styles.divider} />
@@ -613,14 +770,10 @@ const OrderScreen = ({navigation, route}: any) => {
               </Text>
             </View>
 
-            {order.discountCode && (
+            {order.discountCode && order.discountCode.trim() !== '' && (
               <>
                 <View style={styles.summaryRow}>
-                  <Text>Mã giảm giá</Text>
-                  <Text style={styles.price}>{order.discountCode}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text>Số tiền giảm</Text>
+                  <Text>Mã giảm giá ({order.discountCode})</Text>
                   <Text style={styles.price}>
                     {formatCurrency(order.discountAmount || 0)}
                   </Text>
@@ -640,11 +793,14 @@ const OrderScreen = ({navigation, route}: any) => {
 
           <Text style={styles.sectionTitle}>Thông tin giao hàng</Text>
           <Text>
-            {order.shippingAddress.street}, {order.shippingAddress.communes},{' '}
-            {order.shippingAddress.district}, {order.shippingAddress.city}
+            Địa chỉ: {order.shippingAddress.street},{' '}
+            {order.shippingAddress.communes}, {order.shippingAddress.district},{' '}
+            {order.shippingAddress.city}
           </Text>
-          <Text>Điện thoại: {order.phoneNumber}</Text>
-          <Text>Ghi chú: {order.orderNotes}</Text>
+          <Text>SĐT: {order.phoneNumber}</Text>
+          {order.orderNotes && order.orderNotes.trim() !== '' && (
+            <Text>Ghi chú: {order.orderNotes}</Text>
+          )}
           {showReviewModal && selectedOrderItem && (
             <Modal visible={showReviewModal} animationType="slide">
               <View style={styles.modalContainer}>
@@ -792,6 +948,29 @@ const OrderScreen = ({navigation, route}: any) => {
           )}
         </View>
       ))}
+      <View style={styles.paginationContainer}>
+        {Array.from({length: totalPages}, (_, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.pageButton,
+              page === index + 1 && styles.pageButtonActive,
+            ]}
+            onPress={() => {
+              setPage(index + 1);
+              scrollViewRef.current?.scrollTo({y: 0, animated: true});
+            }}>
+            <Text
+              style={[
+                styles.pageButtonText,
+                page === index + 1 && styles.pageButtonTextActive,
+              ]}>
+              {index + 1}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <FooterComponent />
     </ScrollView>
   );
@@ -1077,6 +1256,51 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     marginBottom: 10,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 16,
+    flexWrap: 'wrap',
+  },
+
+  pageButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    margin: 4,
+    backgroundColor: '#ccc',
+    borderRadius: 5,
+  },
+
+  pageButtonActive: {
+    backgroundColor: '#333',
+  },
+
+  pageButtonText: {
+    color: '#000',
+    fontWeight: 'bold',
+  },
+
+  pageButtonTextActive: {
+    color: '#fff',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  filterButton: {
+    backgroundColor: appColors.bg_btn_light_red,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    marginRight: 8,
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

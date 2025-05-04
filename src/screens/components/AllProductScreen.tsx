@@ -46,27 +46,28 @@ const getValidImageUri = (uri: string) => {
   return uri;
 };
 
-const CategoryScreen = ({route, navigation}: any) => {
+const AllProductScreen = ({route, navigation}: any) => {
   const {userId, accessToken} = route.params || {};
-  const {categoryId, categoryName} = route.params;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const pageSize = 6;
+  const totalPages = Math.ceil(allProducts.length / pageSize);
   const flatListRef = useRef<FlatList>(null);
-  const [paginatedProducts, setPaginatedProducts] = useState<Product[]>([]);
 
   const handlePageChange = (pageNumber: number) => {
     const startIndex = (pageNumber - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    const newPageData = products.slice(startIndex, endIndex);
-    setPaginatedProducts(newPageData);
-    setPage(pageNumber);
+    const newPageData = allProducts.slice(startIndex, endIndex);
 
-    // Scroll lên đầu khi chuyển trang
+    setProducts(newPageData); // Cập nhật lại dữ liệu sản phẩm
+    setPage(pageNumber); // Cập nhật lại số trang
+
+    // Cuộn về đầu danh sách sau khi thay đổi trang
     flatListRef.current?.scrollToOffset({offset: 0, animated: true});
   };
 
@@ -133,11 +134,7 @@ const CategoryScreen = ({route, navigation}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {
-        query: searchQuery,
-        userId: userId,
-        accessToken: accessToken,
-      });
+      navigation.navigate('SearchScreen', {query: searchQuery});
     }
   };
 
@@ -171,12 +168,10 @@ const CategoryScreen = ({route, navigation}: any) => {
   };
 
   useEffect(() => {
-    navigation.setOptions({title: categoryName});
-
     const fetchProducts = async () => {
       try {
         const response = await fetch(
-          `http://10.0.2.2:8081/api/products?sortBy=name&sortOrder=asc`,
+          `http://10.0.2.2:8081/api/products?sortBy=id&sortOrder=asc`,
         );
         if (!response.ok) {
           const errorText = await response.text();
@@ -184,12 +179,9 @@ const CategoryScreen = ({route, navigation}: any) => {
           return;
         }
         const text = await response.text();
-        const allProducts: Product[] = text ? JSON.parse(text) : [];
-
-        const filtered = allProducts.filter(p => p.categoryId === categoryId);
-        setProducts(filtered);
-        setPaginatedProducts(filtered.slice(0, pageSize));
-        setPage(1);
+        const allData: Product[] = text ? JSON.parse(text) : [];
+        setAllProducts(allData);
+        setProducts(allData.slice(0, pageSize));
       } catch (error: any) {
         console.error('Lỗi khi fetch sản phẩm:', error?.message || error);
       } finally {
@@ -198,9 +190,7 @@ const CategoryScreen = ({route, navigation}: any) => {
     };
 
     fetchProducts();
-  }, [categoryId, navigation]);
-
-  const totalPages = Math.ceil(products.length / pageSize);
+  }, [navigation]);
 
   const ProductCard = ({
     product,
@@ -219,30 +209,6 @@ const CategoryScreen = ({route, navigation}: any) => {
     const emptyStars = '☆'.repeat(totalStars - Math.floor(averageRating));
     const starRating = fullStars + emptyStars;
 
-    const [brandName, setBrandName] = useState<string | null>(null);
-
-    useEffect(() => {
-      const fetchBrandName = async () => {
-        try {
-          const response = await fetch(
-            `http://10.0.2.2:8081/api/brands/${product.brandId}`,
-          );
-          const data = await response.json();
-          if (response.ok) {
-            setBrandName(data.name);
-          } else {
-            console.error('Không thể tải thông tin thương hiệu');
-          }
-        } catch (error) {
-          console.error('Có lỗi xảy ra khi lấy thông tin thương hiệu:', error);
-        }
-      };
-
-      if (product.brandId) {
-        fetchBrandName();
-      }
-    }, [product.brandId]);
-
     return (
       <TouchableOpacity
         style={styles.productCard}
@@ -257,7 +223,6 @@ const CategoryScreen = ({route, navigation}: any) => {
           source={{uri: getValidImageUri(product.images[0])}}
           style={styles.productImage}
         />
-        <Text style={styles.brandName}>{brandName}</Text>
         <Text style={styles.productName}>{product.name}</Text>
         <View style={styles.ratingsContainer}>
           <Text style={styles.ratingText}>{starRating}</Text>
@@ -310,13 +275,13 @@ const CategoryScreen = ({route, navigation}: any) => {
   return (
     <FlatList
       ref={flatListRef}
-      data={paginatedProducts}
-      extraData={page}
+      data={products}
       keyExtractor={item => item.id}
       renderItem={renderItem}
       numColumns={2}
       columnWrapperStyle={styles.column}
       contentContainerStyle={styles.listContainer}
+      extraData={page}
       ListHeaderComponent={() => (
         <>
           <View style={styles.header}>
@@ -433,7 +398,7 @@ const CategoryScreen = ({route, navigation}: any) => {
               </View>
             </TouchableWithoutFeedback>
           </Modal>
-          <Text style={styles.title}>{categoryName}</Text>
+          <Text style={styles.title}>Tất cả sản phẩm</Text>
         </>
       )}
       ListFooterComponent={() => (
@@ -464,7 +429,7 @@ const CategoryScreen = ({route, navigation}: any) => {
   );
 };
 
-export default CategoryScreen;
+export default AllProductScreen;
 
 const styles = StyleSheet.create({
   addToCartButton: {
@@ -554,6 +519,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: appColors.text_secondary,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#E99689',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 2,
+    borderColor: '#000',
+  },
   menuButton: {
     padding: 8,
   },
@@ -609,29 +584,18 @@ const styles = StyleSheet.create({
     color: '#D10000',
     textAlign: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#E99689',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 2,
-    borderColor: '#000',
-  },
   paginationContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingVertical: 10,
+    marginVertical: 20,
     flexWrap: 'wrap',
   },
 
   pageButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    margin: 4,
-    backgroundColor: '#ccc',
-    borderRadius: 4,
+    padding: 10,
+    marginHorizontal: 5,
+    backgroundColor: '#eee',
+    borderRadius: 5,
   },
 
   pageButtonActive: {
@@ -640,10 +604,10 @@ const styles = StyleSheet.create({
 
   pageButtonText: {
     color: '#000',
-    fontWeight: 'bold',
   },
 
   pageButtonTextActive: {
     color: '#fff',
+    fontWeight: 'bold',
   },
 });

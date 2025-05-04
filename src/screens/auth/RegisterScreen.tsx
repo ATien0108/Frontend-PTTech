@@ -60,22 +60,7 @@ const RegisterScreen = ({navigation}: any) => {
         email: email || '',
         phoneNumber: phoneNumber || '',
         password: password || '',
-        avatar: 'https://i.postimg.cc/153KnpPS/avatar-m-c-nh.jpg',
-        address: {
-          street: '',
-          communes: '',
-          district: '',
-          city: '',
-          country: '',
-        },
         subscribedToEmails: isAgree,
-        roles: [
-          {
-            roleName: 'CUSTOMER',
-            permissions: [''],
-          },
-        ],
-        isVerified: 'true',
       };
 
       const response = await axios.post(

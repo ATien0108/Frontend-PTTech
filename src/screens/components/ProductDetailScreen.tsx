@@ -35,17 +35,27 @@ const TABS = [
   {id: 'blog', title: 'Bài viết'},
   {id: 'warranty', title: 'Bảo hành'},
   {id: 'reviews', title: 'Đánh giá'},
-  {id: 'qna', title: 'Q&A'},
 ];
 
-const ProductImageCarousel = ({images}: {images: any[]}) => {
+const getValidImageUri = (uri: string) => {
+  if (uri.includes('localhost')) {
+    return uri.replace('localhost', '10.0.2.2');
+  }
+  return uri;
+};
+
+const ProductImageCarousel = ({images}: {images: string[]}) => {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.imageCarousel}>
       {images.map((img, index) => (
-        <Image key={index} source={{uri: img}} style={styles.thumbnail} />
+        <Image
+          key={index}
+          source={{uri: getValidImageUri(img)}}
+          style={styles.thumbnail}
+        />
       ))}
     </ScrollView>
   );
@@ -123,19 +133,17 @@ const ProductDetailScreen = ({navigation, route}: any) => {
   useEffect(() => {
     const fetchDiscountCodes = async () => {
       try {
-        // Gọi API để lấy tất cả discount codes
         const response = await axios.get(
           'http://10.0.2.2:8081/api/discount-codes',
         );
         const allDiscountCodes = response.data;
 
-        // Lọc discount code có applicableProducts chứa productId
         const applicableDiscountCodes = allDiscountCodes.filter(
           (discountCode: any) =>
             discountCode.applicableProducts.includes(productId),
         );
 
-        setDiscountCodes(applicableDiscountCodes); // Cập nhật state discountCodes
+        setDiscountCodes(applicableDiscountCodes);
       } catch (error) {
         console.error('Error fetching discount codes:', error);
       }
@@ -287,7 +295,11 @@ const ProductDetailScreen = ({navigation, route}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
+      navigation.navigate('SearchScreen', {
+        query: searchQuery,
+        userId: userId,
+        accessToken: accessToken,
+      });
     }
   };
 
@@ -406,14 +418,20 @@ const ProductDetailScreen = ({navigation, route}: any) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>PTTechShop</Text>
+        <Text
+          style={styles.titleHeader}
+          onPress={() =>
+            navigation.navigate('HomeScreen', {userId, accessToken})
+          }>
+          PTTechShop
+        </Text>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="black" />
         </TouchableOpacity>
       </View>
 
       <Modal visible={isMenuVisible} animationType="slide" transparent>
-        <TouchableWithoutFeedback onPress={toggleMenu}>
+        <TouchableWithoutFeedback>
           <View style={styles.modalOverlay}>
             <View style={styles.menuContainer}>
               <View style={styles.searchContainer}>
@@ -432,7 +450,9 @@ const ProductDetailScreen = ({navigation, route}: any) => {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('HomeScreen')}>
+                onPress={() =>
+                  navigation.navigate('HomeScreen', {userId, accessToken})
+                }>
                 <Icon name="home-outline" size={22} color="black" />
                 <Text style={styles.menuText}>Trang chủ</Text>
               </TouchableOpacity>
@@ -441,33 +461,48 @@ const ProductDetailScreen = ({navigation, route}: any) => {
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleProfilePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleProfilePress();
+                    }}>
                     <Icon name="account-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Thông tin cá nhân</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLogout}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLogout();
+                    }}>
                     <Icon name="logout" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng xuất</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleOrderPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleOrderPress();
+                    }}>
                     <Icon name="history" size={22} color="black" />
                     <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleCartPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleCartPress();
+                    }}>
                     <Icon name="cart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Giỏ hàng</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleFavoritePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleFavoritePress();
+                    }}>
                     <Icon name="heart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
                   </TouchableOpacity>
@@ -476,7 +511,10 @@ const ProductDetailScreen = ({navigation, route}: any) => {
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLoginPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLoginPress();
+                    }}>
                     <Icon name="login" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng nhập</Text>
                   </TouchableOpacity>
@@ -504,7 +542,11 @@ const ProductDetailScreen = ({navigation, route}: any) => {
         <SpaceComponent height={25} />
       </SectionComponent>
 
-      <Image source={{uri: product.images[0]}} style={styles.productImage} />
+      <Image
+        source={{uri: getValidImageUri(product.images[0])}}
+        style={styles.productImage}
+      />
+
       <ProductImageCarousel images={product.images} />
 
       <View style={styles.detailsContainer}>
@@ -512,28 +554,25 @@ const ProductDetailScreen = ({navigation, route}: any) => {
         <Text style={styles.brandName}>Thương hiệu: {brandName}</Text>
 
         <View style={styles.ratingContainer}>
-          {[...Array(Math.floor(product.ratings.average))].map((_, index) => (
-            <Icon key={`full-${index}`} name="star" size={16} color="gold" />
-          ))}
+          {product.ratings.totalReviews === 0 ? (
+            <Text style={styles.ratingText}>Chưa có đánh giá</Text>
+          ) : (
+            <Text style={styles.ratingText}>
+              {(() => {
+                const totalStars = 5;
+                const average = product.ratings.average;
+                const full = Math.floor(average);
+                const hasHalf = average % 1 !== 0;
+                const empty = totalStars - full - (hasHalf ? 1 : 0);
 
-          {product.ratings.average % 1 !== 0 && (
-            <Icon name="star-half" size={16} color="gold" />
+                const fullStars = '⭐'.repeat(full);
+                const halfStar = hasHalf ? '⯪' : '';
+                const emptyStars = '☆'.repeat(empty);
+
+                return `${fullStars}${halfStar}${emptyStars} (${product.ratings.totalReviews} đánh giá)`;
+              })()}
+            </Text>
           )}
-
-          {[...Array(5 - Math.ceil(product.ratings.average))].map(
-            (_, index) => (
-              <Icon
-                key={`empty-${index}`}
-                name="star-o"
-                size={16}
-                color="gold"
-              />
-            ),
-          )}
-
-          <Text style={styles.ratingText}>
-            {product.ratings.average} ({product.ratings.totalReviews} đánh giá)
-          </Text>
         </View>
 
         <View style={styles.priceContainer}>
@@ -607,19 +646,30 @@ const ProductDetailScreen = ({navigation, route}: any) => {
               <FlatList
                 data={product.variants}
                 keyExtractor={item => item.variantId.toString()}
-                renderItem={({item}) => (
-                  <TouchableOpacity
-                    style={[
-                      styles.variantButton,
-                      selectedVariant?.variantId === item.variantId &&
-                        styles.variantButtonSelected,
-                    ]}
-                    onPress={() => handleVariantSelection(item)}>
-                    <Text style={styles.variantText}>
-                      {item.color} - {item.size} - {item.ram} - {item.storage}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                ItemSeparatorComponent={() => <View style={{height: 10}} />}
+                renderItem={({item}) => {
+                  const variantDetails = [];
+
+                  if (item.color) variantDetails.push(item.color);
+                  if (item.size) variantDetails.push(item.size);
+                  if (item.ram) variantDetails.push(item.ram);
+                  if (item.storage) variantDetails.push(item.storage);
+                  if (item.stock) variantDetails.push(`Kho: ${item.stock}`);
+
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.variantButton,
+                        selectedVariant?.variantId === item.variantId &&
+                          styles.variantButtonSelected,
+                      ]}
+                      onPress={() => handleVariantSelection(item)}>
+                      <Text style={styles.variantText}>
+                        {variantDetails.join(' - ')}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
               />
 
               {/* Quantity Selection */}
@@ -723,7 +773,6 @@ const ProductDetailScreen = ({navigation, route}: any) => {
             )}
           </View>
         )}
-        {activeTab === 'qna' && <Text>{product.qna}</Text>}
       </View>
       {discountCodes.length > 0 && (
         <View style={styles.discountContainer}>
@@ -938,13 +987,17 @@ const styles = StyleSheet.create({
   },
   variantContainer: {
     padding: 15,
+    gap: 10,
   },
+
   variantButton: {
     backgroundColor: appColors.bg_btn_dark_blue,
     padding: 10,
     borderRadius: 8,
+    marginVertical: 5,
     marginHorizontal: 5,
   },
+
   variantButtonSelected: {
     backgroundColor: appColors.bg_btn_dark_blue,
   },

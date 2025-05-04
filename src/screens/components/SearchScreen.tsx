@@ -43,7 +43,7 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
   navigation,
   route,
 }) => {
-  const {query: initialQuery} = route.params; // Lấy query từ route.params
+  const {query: initialQuery} = route.params;
   const [query, setQuery] = useState<string>(initialQuery || '');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,6 +51,13 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
 
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const getValidImageUri = (uri: string) => {
+    if (uri.includes('localhost')) {
+      return uri.replace('localhost', '10.0.2.2');
+    }
+    return uri;
+  };
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -166,10 +173,12 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
     }
   };
 
-  const ProductCard: React.FC<{product: Product; navigation: any}> = ({
-    product,
-    navigation,
-  }) => {
+  const ProductCard: React.FC<{
+    product: Product;
+    navigation: any;
+    userId: string;
+    accessToken: string;
+  }> = ({product, navigation, userId, accessToken}) => {
     const totalStars = 5;
     const averageRating = product.ratings.average;
 
@@ -204,9 +213,16 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
       <TouchableOpacity
         style={styles.productCard}
         onPress={() =>
-          navigation.navigate('ProductDetailScreen', {productId: product.id})
+          navigation.navigate('ProductDetailScreen', {
+            productId: product.id,
+            userId,
+            accessToken,
+          })
         }>
-        <Image source={{uri: product.images[0]}} style={styles.productImage} />
+        <Image
+          source={{uri: getValidImageUri(product.images[0])}}
+          style={styles.productImage}
+        />
         <Text style={styles.brandName}>
           {brandName || 'Đang tải thương hiệu...'}
         </Text>
@@ -244,19 +260,27 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>PTTechShop</Text>
+        <Text
+          style={styles.titleHeader}
+          onPress={() =>
+            navigation.navigate('HomeScreen', {userId, accessToken})
+          }>
+          PTTechShop
+        </Text>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="black" />
         </TouchableOpacity>
       </View>
 
       <Modal visible={isMenuVisible} animationType="slide" transparent>
-        <TouchableWithoutFeedback onPress={toggleMenu}>
+        <TouchableWithoutFeedback>
           <View style={styles.modalOverlay}>
             <View style={styles.menuContainer}>
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('HomeScreen')}>
+                onPress={() =>
+                  navigation.navigate('HomeScreen', {userId, accessToken})
+                }>
                 <Icon name="home-outline" size={22} color="black" />
                 <Text style={styles.menuText}>Trang chủ</Text>
               </TouchableOpacity>
@@ -265,33 +289,48 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleProfilePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleProfilePress();
+                    }}>
                     <Icon name="account-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Thông tin cá nhân</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLogout}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLogout();
+                    }}>
                     <Icon name="logout" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng xuất</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleOrderPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleOrderPress();
+                    }}>
                     <Icon name="history" size={22} color="black" />
                     <Text style={styles.menuText}>Lịch sử đơn hàng</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleCartPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleCartPress();
+                    }}>
                     <Icon name="cart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Giỏ hàng</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleFavoritePress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleFavoritePress();
+                    }}>
                     <Icon name="heart-outline" size={22} color="black" />
                     <Text style={styles.menuText}>Sản phẩm yêu thích</Text>
                   </TouchableOpacity>
@@ -300,7 +339,10 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
                 <>
                   <TouchableOpacity
                     style={styles.menuItem}
-                    onPress={handleLoginPress}>
+                    onPress={() => {
+                      toggleMenu();
+                      handleLoginPress();
+                    }}>
                     <Icon name="login" size={22} color="black" />
                     <Text style={styles.menuText}>Đăng nhập</Text>
                   </TouchableOpacity>
@@ -333,7 +375,12 @@ const SearchScreen: React.FC<{navigation: any; route: any}> = ({
             data={products}
             keyExtractor={item => item.id}
             renderItem={({item}) => (
-              <ProductCard product={item} navigation={navigation} />
+              <ProductCard
+                product={item}
+                navigation={navigation}
+                userId={userId}
+                accessToken={accessToken}
+              />
             )}
             showsHorizontalScrollIndicator={false}
             style={{marginBottom: 24}}

@@ -15,6 +15,7 @@ import SearchScreen from '../screens/components/SearchScreen';
 import OrderScreen from '../screens/components/OrderScreen';
 import CartScreen from '../screens/components/CartScreen';
 import FavoriteScreen from '../screens/components/FavoriteScreen';
+import AllProductScreen from '../screens/components/AllProductScreen';
 
 const AuthNavigator = () => {
   const Stack = createNativeStackNavigator();
@@ -45,6 +46,7 @@ const AuthNavigator = () => {
       <Stack.Screen name="OrderScreen" component={OrderScreen} />
       <Stack.Screen name="CartScreen" component={CartScreen} />
       <Stack.Screen name="FavoriteScreen" component={FavoriteScreen} />
+      <Stack.Screen name="AllProductScreen" component={AllProductScreen} />
 
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
     </Stack.Navigator>

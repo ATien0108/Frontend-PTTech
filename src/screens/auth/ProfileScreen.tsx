@@ -23,6 +23,9 @@ import {
 } from '../../components';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {appColors} from '../../constants/appColors';
+import {launchImageLibrary} from 'react-native-image-picker';
+import {PermissionsAndroid, Platform} from 'react-native';
+import {request, check, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 const ProfileScreen = ({route, navigation}: any) => {
   const {userId} = route.params;
@@ -35,6 +38,13 @@ const ProfileScreen = ({route, navigation}: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const getValidImageUri = (uri: string) => {
+    if (uri.includes('localhost')) {
+      return uri.replace('localhost', '10.0.2.2');
+    }
+    return uri;
+  };
 
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -74,7 +84,11 @@ const ProfileScreen = ({route, navigation}: any) => {
 
   const handleSearchPress = () => {
     if (searchQuery.trim()) {
-      navigation.navigate('SearchScreen', {query: searchQuery});
+      navigation.navigate('SearchScreen', {
+        query: searchQuery,
+        userId: userId,
+        accessToken: accessToken,
+      });
     }
   };
 
@@ -98,6 +112,15 @@ const ProfileScreen = ({route, navigation}: any) => {
     }
   };
 
+  const handleFavoritePress = () => {
+    if (accessToken && userId) {
+      navigation.navigate('FavoriteScreen', {userId, accessToken});
+    } else {
+      Alert.alert('Bạn cần đăng nhập để xem sản phẩm yêu thích.');
+      navigation.navigate('LoginScreen');
+    }
+  };
+
   const getAccessToken = async () => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
@@ -107,6 +130,90 @@ const ProfileScreen = ({route, navigation}: any) => {
       setError('Không thể lấy token. Vui lòng đăng nhập lại.');
       setLoading(false);
     }
+  };
+
+  const requestStoragePermission = async () => {
+    if (Platform.OS === 'android') {
+      const permission =
+        Platform.Version >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+      const granted = await PermissionsAndroid.request(permission, {
+        title: 'Cấp quyền truy cập ảnh',
+        message: 'Ứng dụng cần quyền để chọn ảnh avatar.',
+        buttonPositive: 'Đồng ý',
+        buttonNegative: 'Hủy',
+      });
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+
+    return true;
+  };
+
+  const handleChooseAvatar = async () => {
+    const hasPermission = await requestStoragePermission();
+    console.log('Permission granted:', hasPermission);
+    if (!hasPermission) return;
+
+    launchImageLibrary(
+      {mediaType: 'photo', selectionLimit: 1},
+      async (response: any) => {
+        console.log('Image picker response:', response);
+
+        if (response.didCancel) {
+          console.log('Người dùng hủy chọn ảnh');
+          return;
+        }
+
+        if (response.errorCode) {
+          console.error('Lỗi chọn ảnh:', response.errorMessage);
+          Alert.alert('Lỗi', response.errorMessage || 'Không thể chọn ảnh');
+          return;
+        }
+
+        const image = response.assets?.[0];
+        if (!image) {
+          Alert.alert('Lỗi', 'Không tìm thấy ảnh được chọn');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', {
+          uri:
+            Platform.OS === 'android'
+              ? image.uri
+              : image.uri.replace('file://', ''),
+          name: image.fileName || 'avatar.jpg',
+          type: image.type || 'image/jpeg',
+        });
+
+        try {
+          const res = await axios.post(
+            `http://10.0.2.2:8081/api/users/upload-avatar/${userId}`,
+            formData,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'multipart/form-data',
+              },
+            },
+          );
+
+          if (res.status === 200) {
+            Alert.alert('Thành công', 'Tải ảnh avatar lên thành công!');
+            fetchUserData(); // reload avatar
+          } else {
+            console.error('Upload failed:', res.status, res.data);
+            Alert.alert('Lỗi', 'Không thể tải ảnh avatar lên.');
+          }
+        } catch (err) {
+          console.error('Upload avatar error:', err);
+          Alert.alert('Lỗi', 'Đã có lỗi khi tải ảnh avatar.');
+        }
+      },
+    );
   };
 
   const fetchUserData = async () => {
@@ -187,15 +294,6 @@ const ProfileScreen = ({route, navigation}: any) => {
     }
   }, [accessToken, userId]);
 
-  const handleFavoritePress = () => {
-    if (accessToken && userId) {
-      navigation.navigate('FavoriteScreen', {userId, accessToken});
-    } else {
-      Alert.alert('Bạn cần đăng nhập để xem sản phẩm yêu thích.');
-      navigation.navigate('LoginScreen');
-    }
-  };
-
   if (loading) {
     return <Text>Đang tải thông tin người dùng...</Text>;
   }
@@ -207,7 +305,13 @@ const ProfileScreen = ({route, navigation}: any) => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>PTTechShop</Text>
+        <Text
+          style={styles.titleHeader}
+          onPress={() =>
+            navigation.navigate('HomeScreen', {userId, accessToken})
+          }>
+          PTTechShop
+        </Text>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="black" />
         </TouchableOpacity>
@@ -233,7 +337,9 @@ const ProfileScreen = ({route, navigation}: any) => {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('HomeScreen')}>
+                onPress={() =>
+                  navigation.navigate('HomeScreen', {userId, accessToken})
+                }>
                 <Icon name="home-outline" size={22} color="black" />
                 <Text style={styles.menuText}>Trang chủ</Text>
               </TouchableOpacity>
@@ -288,24 +394,19 @@ const ProfileScreen = ({route, navigation}: any) => {
         </TouchableWithoutFeedback>
       </Modal>
       <SectionComponent styles={{alignItems: 'center'}}>
-        <TextComponent
-          size={30}
-          title
-          text="Thông tin cá nhân"
-          color={appColors.text_red}
-        />
-        <SpaceComponent height={20} />
-
-        <TouchableOpacity>
+        <Text style={styles.title}>Thông tin cá nhân</Text>
+        <TouchableOpacity onPress={handleChooseAvatar}>
           <Image
-            source={{
-              uri:
-                userData.avatar || 'https://i.postimg.cc/05XTj98C/avatar6.jpg',
-            }}
-            style={{width: 100, height: 100, borderRadius: 50}}
+            source={
+              userData?.avatar
+                ? {uri: getValidImageUri(userData.avatar)}
+                : {uri: 'https://i.postimg.cc/153KnpPS/avatar-m-c-nh.jpg'}
+            }
+            style={styles.avatarImage}
             onError={() => console.log('Lỗi khi tải ảnh')}
           />
         </TouchableOpacity>
+
         <SpaceComponent height={20} />
       </SectionComponent>
       <SectionComponent>
@@ -497,10 +598,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 35,
-    marginBottom: 10,
-    color: '#D10000',
+    fontSize: 24,
+    color: '#B30000',
+    fontWeight: 'bold',
     textAlign: 'center',
+    marginVertical: 16,
   },
   header: {
     flexDirection: 'row',
@@ -521,5 +623,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: appColors.bg_white,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2, // Viền ảnh
+    borderColor: '#ccc', // Màu viền
   },
 });

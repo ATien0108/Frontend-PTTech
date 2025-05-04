@@ -9,6 +9,12 @@ import {LoginScreen} from '../screens';
 import OrderScreen from '../screens/components/OrderScreen';
 import CartScreen from '../screens/components/CartScreen';
 import FavoriteScreen from '../screens/components/FavoriteScreen';
+import AllProductScreen from '../screens/components/AllProductScreen';
+import {
+  RegisterScreen,
+  ForgotPasswordScreen,
+  ResetPasswordScreen,
+} from '../screens';
 
 const MainNavigatior = () => {
   const Stack = createNativeStackNavigator();
@@ -16,6 +22,15 @@ const MainNavigatior = () => {
     <Stack.Navigator screenOptions={{headerShown: false}}>
       <Stack.Screen name="Main" component={TabNavigator} />
       <Stack.Screen name="HomeScreen" component={HomeScreen} />
+      <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
+      <Stack.Screen
+        name="ForgotPasswordScreen"
+        component={ForgotPasswordScreen}
+      />
+      <Stack.Screen
+        name="ResetPasswordScreen"
+        component={ResetPasswordScreen}
+      />
 
       <Stack.Screen
         name="ProductDetailScreen"
@@ -28,6 +43,7 @@ const MainNavigatior = () => {
       <Stack.Screen name="OrderScreen" component={OrderScreen} />
       <Stack.Screen name="CartScreen" component={CartScreen} />
       <Stack.Screen name="FavoriteScreen" component={FavoriteScreen} />
+      <Stack.Screen name="AllProductScreen" component={AllProductScreen} />
 
       <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
     </Stack.Navigator>
